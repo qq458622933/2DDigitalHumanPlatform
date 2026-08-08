@@ -32,6 +32,7 @@ const backgroundItems = ref([
 const activeBackgroundId = ref('transparent-default')
 const interactionConfigKey = ref(0)
 const toastVisible = ref(false)
+const toastMessage = ref('')
 
 let backgroundSequence = 0
 
@@ -87,6 +88,13 @@ function handleSectionClick(item) {
 }
 
 function saveSettings() {
+  toastMessage.value = `${activeSection.value}已保存`
+  toastVisible.value = true
+  window.setTimeout(() => { toastVisible.value = false }, 2600)
+}
+
+function handleAccessAction(action) {
+  toastMessage.value = action === '查看使用文档' ? '正在打开数字人软件使用文档' : action === '查看更新日志' ? '正在打开数字人软件更新日志' : '数字人软件下载已开始'
   toastVisible.value = true
   window.setTimeout(() => { toastVisible.value = false }, 2600)
 }
@@ -163,10 +171,10 @@ function removeBackground(item) {
         <div>
           <div class="detail-breadcrumb">数字人 / {{ currentHuman.name }}</div>
           <h1>{{ activeSection }}</h1>
-          <p>{{ activeSection === '交互配置' ? '设置数字人的交互模式、静默状态和常见问题。' : activeSection === '热词配置' ? '配置识别错误词汇的替换规则，提升语音识别准确度。' : '配置数字人的外观形象、音色与输出效果。' }}</p>
+          <p>{{ activeSection === '交互配置' ? '设置数字人的交互模式、静默状态和常见问题。' : activeSection === '热词配置' ? '配置识别错误词汇的替换规则，提升语音识别准确度。' : activeSection === '接入配置' ? '查看数字人软件的设备部署要求、使用文档与下载入口。' : '配置数字人的外观形象、音色与输出效果。' }}</p>
         </div>
       </div>
-      <div v-if="activeSection !== '热词配置'" class="detail-header-actions">
+      <div v-if="!['热词配置', '接入配置'].includes(activeSection)" class="detail-header-actions">
         <button v-if="activeSection === '交互配置'" class="secondary-button detail-reset-button" @click="resetInteractionConfig">重置配置</button>
         <button class="primary-button detail-save-button" @click="saveSettings">
           <AppIcon name="check" :size="17" />保存配置
@@ -325,10 +333,53 @@ function removeBackground(item) {
 
       <InteractionConfigPanel v-else-if="activeSection === '交互配置'" :key="interactionConfigKey" />
       <HotwordConfigPanel v-else-if="activeSection === '热词配置'" />
+      <section v-else-if="activeSection === '接入配置'" class="access-config-panel">
+        <div class="access-config-heading">
+          <span class="access-config-icon"><AppIcon name="server" :size="23" /></span>
+          <div><h2>数字人软件设备部署配置</h2><p>当前应用为 {{ currentHuman.type }}，请根据以下配置准备运行设备。</p></div>
+          <span class="access-edition-badge">{{ currentHuman.type }}</span>
+        </div>
+
+        <div class="deployment-requirements">
+          <div class="deployment-section-title"><div><strong>推荐配置参数</strong><span>保证数字人软件稳定运行</span></div><em>RECOMMENDED</em></div>
+          <div class="deployment-spec-grid">
+            <article>
+              <span><AppIcon name="server" :size="21" /></span>
+              <div><small>CPU</small><strong>Intel Core i7-12700</strong><p>12 核 20 线程或更高配置</p></div>
+            </article>
+            <article>
+              <span><AppIcon name="database" :size="21" /></span>
+              <div><small>内存</small><strong>32 GB</strong><p>建议预留充足运行内存</p></div>
+            </article>
+            <article v-if="currentHuman.type === '2D本地版'">
+              <span><AppIcon name="video" :size="21" /></span>
+              <div><small>显卡</small><strong>NVIDIA RTX 4070 / 5070</strong><p>本地渲染需要独立显卡支持</p></div>
+            </article>
+            <article v-else class="no-gpu-requirement">
+              <span><AppIcon name="check" :size="21" /></span>
+              <div><small>显卡</small><strong>无独立显卡要求</strong><p>2D在线版由云端完成数字人渲染</p></div>
+            </article>
+          </div>
+        </div>
+
+        <div class="deployment-access-note">
+          <AppIcon name="info" :size="18" />
+          <div><strong>部署提示</strong><p>下载数字人软件后，请使用当前数字人的应用码和有效设备授权码完成绑定。</p></div>
+        </div>
+
+        <div class="access-resource-section">
+          <div><h3>文档与软件下载</h3><p>查看使用说明、版本更新内容或下载最新版数字人软件。</p></div>
+          <div class="access-resource-actions">
+            <button type="button" @click="handleAccessAction('查看使用文档')"><AppIcon name="file" :size="17" /><span><strong>查看数字人软件使用文档</strong><small>部署及操作说明</small></span><AppIcon name="chevron" :size="15" /></button>
+            <button type="button" @click="handleAccessAction('查看更新日志')"><AppIcon name="clock" :size="17" /><span><strong>软件更新日志</strong><small>查看版本更新内容</small></span><AppIcon name="chevron" :size="15" /></button>
+            <button type="button" class="download-software-button" @click="handleAccessAction('下载数字人软件')"><AppIcon name="download" :size="17" /><span><strong>下载数字人软件</strong><small>获取最新安装包</small></span><AppIcon name="chevron" :size="15" /></button>
+          </div>
+        </div>
+      </section>
     </div>
 
     <Transition name="toast">
-      <div v-if="toastVisible" class="toast-message"><AppIcon name="check" :size="19" />{{ activeSection }}已保存</div>
+      <div v-if="toastVisible" class="toast-message"><AppIcon name="check" :size="19" />{{ toastMessage }}</div>
     </Transition>
   </div>
 </template>

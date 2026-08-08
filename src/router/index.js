@@ -6,6 +6,7 @@ import AgentDetailView from '../views/AgentDetailView.vue'
 import KnowledgeUploadView from '../views/KnowledgeUploadView.vue'
 import KnowledgeDetailView from '../views/KnowledgeDetailView.vue'
 import KnowledgeDocumentDetailView from '../views/KnowledgeDocumentDetailView.vue'
+import VersionManagementView from '../views/VersionManagementView.vue'
 
 const routes = [
   { path: '/', redirect: '/training' },
@@ -23,7 +24,7 @@ const routes = [
   { path: '/benefits', name: 'benefits', component: ModuleView, meta: { moduleKey: 'benefits' } },
   { path: '/resources', name: 'resources', component: ModuleView, meta: { moduleKey: 'resources' } },
   { path: '/assets', name: 'assets', component: ModuleView, meta: { moduleKey: 'assets' } },
-  { path: '/versions', name: 'versions', component: ModuleView, meta: { moduleKey: 'versions' } },
+  { path: '/versions', name: 'versions', component: VersionManagementView, meta: { moduleKey: 'versions' } },
 ]
 
 export default createRouter({

@@ -1,6 +1,8 @@
 import presenterFemale from '../assets/avatar-previews/presenter-female.png'
 import instructorMale from '../assets/avatar-previews/instructor-male.png'
 import presenterCreative from '../assets/avatar-previews/presenter-creative.png'
+import backgroundTechBlue from '../assets/avatar-previews/background-tech-blue.svg'
+import backgroundExhibition from '../assets/avatar-previews/background-exhibition.svg'
 
 export const navItems = [
   { key: 'training', label: '形象训练', path: '/training', icon: 'sparkles' },
@@ -64,10 +66,10 @@ export const moduleData = {
     ],
     columns: ['数字人名称', '形象类型', '绑定智能体'],
     rows: [
-      { name: '小雅', subtitle: '品牌讲解员', type: '2D在线版', extra: '售前咨询助手', description: '专注企业品牌介绍与产品功能讲解。', createdAt: '2026-08-01 14:26', appCode: 'APP-X7K2-9QMP', resolution: '9:16', preview: presenterFemale, tone: 'violet' },
-      { name: '林夕', subtitle: '直播推荐官', type: '2D在线版', extra: '直播运营助手', description: '用于直播间产品推荐与活动信息播报。', createdAt: '2026-07-28 09:42', appCode: 'APP-B4NT-6LQ8', resolution: '9:16', preview: presenterCreative, tone: 'pink' },
-      { name: '安安', subtitle: '智能客服', type: '2D本地版', extra: '客服接待助手', description: '提供业务咨询、问题解答和服务引导。', createdAt: '2026-07-25 16:08', appCode: 'APP-M3CA-8VPR', resolution: '16:9', preview: presenterFemale, tone: 'cyan' },
-      { name: '陈老师', subtitle: '课程导师', type: '2D本地版', extra: '课程答疑助手', description: '适用于在线课程讲授和知识内容演示。', createdAt: '2026-07-22 11:30', appCode: 'APP-T9HW-2DF5', resolution: '16:9', preview: instructorMale, tone: 'orange' },
+      { name: '小雅', subtitle: '品牌讲解员', type: '2D在线版', extra: '售前咨询助手', description: '专注企业品牌介绍与产品功能讲解。', createdAt: '2026-08-01 14:26', appCode: 'APP-X7K2-9QMP', resolution: '9:16', preview: presenterFemale, isTemplate: true, tone: 'violet' },
+      { name: '林夕', subtitle: '直播推荐官', type: '2D在线版', extra: '直播运营助手', description: '用于直播间产品推荐与活动信息播报。', createdAt: '2026-07-28 09:42', appCode: 'APP-B4NT-6LQ8', resolution: '9:16', preview: presenterCreative, isTemplate: true, tone: 'pink' },
+      { name: '安安', subtitle: '智能客服', type: '2D本地版', extra: '客服接待助手', description: '提供业务咨询、问题解答和服务引导。', createdAt: '2026-07-25 16:08', appCode: 'APP-M3CA-8VPR', resolution: '16:9', preview: presenterFemale, isTemplate: true, tone: 'cyan' },
+      { name: '陈老师', subtitle: '课程导师', type: '2D本地版', extra: '课程答疑助手', description: '适用于在线课程讲授和知识内容演示。', createdAt: '2026-07-22 11:30', appCode: 'APP-T9HW-2DF5', resolution: '16:9', preview: instructorMale, isTemplate: true, tone: 'orange' },
     ],
   },
   knowledge: {
@@ -118,17 +120,22 @@ export const moduleData = {
   assets: {
     title: '资产管理', eyebrow: 'DIGITAL ASSETS', description: '集中管理图片、音频、视频与数字人项目资产。', action: '上传资产', icon: 'folder', accent: '#ec4899',
     stats: [
-      { label: '全部资产', value: '8,642', change: '+286 本月', icon: 'folder' },
-      { label: '视频素材', value: '1,208', change: '占用 1.8TB', icon: 'video' },
-      { label: '音频素材', value: '3,426', change: '占用 486GB', icon: 'message' },
-      { label: '图片素材', value: '4,008', change: '占用 926GB', icon: 'file' },
+      { label: '2D本地版资产', value: '16', change: '4 个资产模块', icon: 'server' },
+      { label: '2D在线版资产', value: '8', change: '2 个资产模块', icon: 'video' },
+      { label: '形象资产', value: '9', change: '在线与本地', icon: 'user' },
+      { label: '预设背景', value: '6', change: '在线与本地', icon: 'image' },
     ],
     columns: ['资产名称', '文件类型', '文件大小', '更新时间', '状态'],
     rows: [
-      { name: '企业宣传片_终版.mp4', subtitle: 'AST-86021', type: 'MP4 视频', extra: '286.4 MB', date: '今天 11:30', status: '可用', tone: 'pink' },
-      { name: '产品介绍话术.wav', subtitle: 'AST-86008', type: 'WAV 音频', extra: '42.8 MB', date: '昨天 17:12', status: '可用', tone: 'violet' },
-      { name: '品牌背景_科技蓝.png', subtitle: 'AST-85976', type: 'PNG 图片', extra: '8.2 MB', date: '07-30 15:42', status: '可用', tone: 'blue' },
-      { name: '直播项目源文件.zip', subtitle: 'AST-85921', type: 'ZIP 压缩包', extra: '1.26 GB', date: '07-28 09:20', status: '审核中', tone: 'orange' },
+      { name: '本地讲解员·小雅', subtitle: 'AST-L-001', edition: '2D本地版', category: '形象管理', type: '形象管理', extra: '9:16 · PNG预览', date: '2026-08-06 11:30', status: '可用', preview: presenterFemale, isDefault: true, tone: 'violet' },
+      { name: '本地客服·安安', subtitle: 'AST-L-002', edition: '2D本地版', category: '形象管理', type: '形象管理', extra: '16:9 · PNG预览', date: '2026-08-05 17:12', status: '可用', preview: presenterCreative, tone: 'cyan' },
+      { name: '挥手问候', subtitle: 'AST-ACT-001', edition: '2D本地版', category: '动作管理', type: '动作管理', extra: 'action_wave · 3.2 MB', date: '2026-08-04 15:42', status: '可用', tone: 'orange' },
+      { name: '双手展示', subtitle: 'AST-ACT-002', edition: '2D本地版', category: '动作管理', type: '动作管理', extra: 'action_show · 4.6 MB', date: '2026-08-03 09:20', status: '可用', tone: 'pink' },
+      { name: '温柔女声', subtitle: 'AST-VOICE-001', edition: '2D本地版', category: '音色管理', type: '音色管理', extra: 'WAV · 42.8 MB', date: '2026-08-02 14:18', status: '可用', tone: 'violet' },
+      { name: '科技蓝背景', subtitle: 'AST-BG-001', edition: '2D本地版', category: '预设背景管理', type: '预设背景管理', backgroundType: '图片背景', backgroundPreview: backgroundTechBlue, description: '适用于科技产品讲解与企业展示场景。', extra: '图片背景 · PNG · 8.2 MB', date: '2026-08-01 10:05', status: '可用', isDefault: true, tone: 'blue' },
+      { name: '在线讲解员·林夕', subtitle: 'AST-O-001', edition: '2D在线版', category: '形象管理', type: '形象管理', extra: '9:16 · 云端形象', date: '2026-08-06 16:35', status: '可用', preview: presenterCreative, isDefault: true, tone: 'pink' },
+      { name: '在线主持人·陈老师', subtitle: 'AST-O-002', edition: '2D在线版', category: '形象管理', type: '形象管理', extra: '16:9 · 云端形象', date: '2026-08-05 13:26', status: '可用', preview: instructorMale, tone: 'orange' },
+      { name: '企业展厅背景', subtitle: 'AST-BG-002', edition: '2D在线版', category: '预设背景管理', type: '预设背景管理', backgroundType: '图片背景', backgroundPreview: backgroundExhibition, description: '适用于企业展厅介绍和品牌内容展示。', extra: '图片背景 · WEBP · 5.6 MB', date: '2026-08-04 08:46', status: '可用', isDefault: true, tone: 'blue' },
     ],
   },
   versions: {

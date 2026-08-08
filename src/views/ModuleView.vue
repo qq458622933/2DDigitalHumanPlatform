@@ -1,14 +1,17 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import { moduleData } from '../config/modules'
 
 const route = useRoute()
 const router = useRouter()
+const platformTutorial = inject('platformTutorial', null)
 const keyword = ref('')
 const activeFilter = ref('全部')
 const activeDigitalHumanType = ref('全部类型')
+const digitalHumanPage = ref(1)
+const digitalHumanPageSize = 4
 const modalOpen = ref(false)
 const toastVisible = ref(false)
 const toastMessage = ref('')
@@ -27,6 +30,8 @@ const digitalHumanRows = ref(moduleData.digitalHumans.rows.map((row) => ({ ...ro
 const knowledgeRows = ref(moduleData.knowledge.rows.map((row) => ({ ...row })))
 const benefitRows = ref(moduleData.benefits.rows.map((row) => ({ ...row })))
 const resourceRows = ref(moduleData.resources.rows.map((row) => ({ ...row })))
+const assetRows = ref(moduleData.assets.rows.map((row) => ({ ...row })))
+const editingAssetId = ref('')
 const knowledgeEditOpen = ref(false)
 const editingKnowledge = ref(null)
 const knowledgeEditName = ref('')
@@ -62,6 +67,40 @@ const showResourceAccessToken = ref(false)
 const editingResourceId = ref('')
 const activeResourceTab = ref('语音识别资源池')
 const resourceTabs = ['语音识别资源池', '语音合成资源池', '本地数字人授权资源']
+const activeAssetEdition = ref('2D本地版')
+const activeAssetCategory = ref('形象管理')
+const activeBackgroundType = ref('全部类型')
+const associatedAssetId = ref('')
+const assetActionId = ref('')
+const assetAvatarId = ref('')
+const assetAvatarGender = ref('女')
+const assetDefaultVoiceId = ref('')
+const assetAvatarDescription = ref('')
+const assetPreviewFile = ref(null)
+const assetPreviewInput = ref(null)
+const assetPreviewUrl = ref('')
+const assetVoiceId = ref('')
+const assetVoiceGender = ref('女声')
+const assetVoiceType = ref('标准音色')
+const assetVoicePitch = ref(1)
+const assetVoiceSpeed = ref(1)
+const assetVoiceDescription = ref('')
+const assetAudioFile = ref(null)
+const assetAudioInput = ref(null)
+const assetAudioPreviewUrl = ref('')
+const assetBackgroundType = ref('透明背景')
+const assetBackgroundDescription = ref('')
+const assetBackgroundPreviewFile = ref(null)
+const assetBackgroundPreviewInput = ref(null)
+const assetBackgroundPreviewUrl = ref('')
+const assetBackgroundMaterialFile = ref(null)
+const assetBackgroundMaterialInput = ref(null)
+const assetBackgroundWebUrl = ref('')
+const assetCategories = computed(() => activeAssetEdition.value === '2D本地版'
+  ? ['形象管理', '动作管理', '音色管理', '预设背景管理']
+  : ['形象管理', '预设背景管理'])
+const assetAvatarOptions = computed(() => assetRows.value.filter((row) => row.edition === activeAssetEdition.value && row.category === '形象管理'))
+const assetVoiceOptions = computed(() => assetRows.value.filter((row) => row.category === '音色管理'))
 const editingDigitalHumanCode = ref('')
 const editingAgentId = ref('')
 const actionModalOpen = ref(false)
@@ -78,8 +117,12 @@ const replacementVideoInput = ref(null)
 const imagePreviewOpen = ref(false)
 const imagePreviewSrc = ref('')
 const imagePreviewTitle = ref('')
+const imagePreviewType = ref('avatar')
 
 const current = computed(() => moduleData[route.meta.moduleKey] || moduleData.training)
+const primaryActionLabel = computed(() => route.meta.moduleKey === 'assets'
+  ? `上传${activeAssetCategory.value.replace('管理', '')}资产`
+  : current.value.action)
 const agentOptions = computed(() => moduleData.agents.rows.map((row) => row.name))
 const displayRows = computed(() => {
   if (route.meta.moduleKey === 'training') return trainingRows.value
@@ -88,6 +131,7 @@ const displayRows = computed(() => {
   if (route.meta.moduleKey === 'knowledge') return knowledgeRows.value
   if (route.meta.moduleKey === 'benefits') return benefitRows.value
   if (route.meta.moduleKey === 'resources') return resourceRows.value
+  if (route.meta.moduleKey === 'assets') return assetRows.value
   return current.value.rows
 })
 const filters = computed(() => ['全部', ...new Set(displayRows.value.map((row) => row.status))])
@@ -100,13 +144,47 @@ const filteredRows = computed(() => {
     return matchesFilter && matchesDigitalHumanType && matchesKeyword
   })
 })
+const digitalHumanTotalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / digitalHumanPageSize)))
+const paginatedDigitalHumanRows = computed(() => {
+  const start = (digitalHumanPage.value - 1) * digitalHumanPageSize
+  return filteredRows.value.slice(start, start + digitalHumanPageSize)
+})
 const filteredResourceRows = computed(() => filteredRows.value.filter((row) => row.type === activeResourceTab.value))
+const filteredAssetRows = computed(() => filteredRows.value.filter((row) => {
+  const matchesEdition = row.edition === activeAssetEdition.value
+  const matchesCategory = row.category === activeAssetCategory.value
+  const matchesBackgroundType = activeAssetCategory.value !== '预设背景管理'
+    || activeBackgroundType.value === '全部类型'
+    || row.backgroundType === activeBackgroundType.value
+  return matchesEdition && matchesCategory && matchesBackgroundType
+}))
+const highlightNewTraining = computed(() => route.meta.moduleKey === 'training'
+  && platformTutorial?.tutorialOpen.value
+  && platformTutorial?.tutorialStep.value === 2)
+const highlightCreateKnowledge = computed(() => route.meta.moduleKey === 'knowledge'
+  && platformTutorial?.tutorialOpen.value
+  && platformTutorial?.tutorialStep.value === 6)
+const highlightCreateDigitalHuman = computed(() => route.meta.moduleKey === 'digitalHumans'
+  && platformTutorial?.tutorialOpen.value
+  && platformTutorial?.tutorialStep.value === 8)
+
+watch([keyword, activeDigitalHumanType], () => {
+  digitalHumanPage.value = 1
+})
+
+watch(digitalHumanTotalPages, (totalPages) => {
+  if (digitalHumanPage.value > totalPages) digitalHumanPage.value = totalPages
+})
 
 watch(() => route.path, () => {
   keyword.value = ''
   activeFilter.value = '全部'
   activeDigitalHumanType.value = '全部类型'
+  digitalHumanPage.value = 1
   activeResourceTab.value = '语音识别资源池'
+  activeAssetEdition.value = '2D本地版'
+  activeAssetCategory.value = '形象管理'
+  activeBackgroundType.value = '全部类型'
   closeModal()
   closeActionModal()
   closeImagePreview()
@@ -136,12 +214,29 @@ function openModal() {
   }
   editingDigitalHumanCode.value = ''
   editingAgentId.value = ''
+  editingAssetId.value = ''
   if (route.meta.moduleKey === 'training') localAvatarType.value = '播报形象'
   if (route.meta.moduleKey === 'digitalHumans') {
     digitalHumanType.value = 'online'
     videoResolution.value = '16:9'
   }
   modalOpen.value = true
+}
+
+function handlePrimaryActionClick() {
+  if (highlightNewTraining.value) {
+    platformTutorial?.completeTutorialStep(2)
+    return
+  }
+  if (highlightCreateKnowledge.value) {
+    platformTutorial?.completeTutorialStep(6)
+    return
+  }
+  if (highlightCreateDigitalHuman.value) {
+    platformTutorial?.completeTutorialStep(8)
+    return
+  }
+  openModal()
 }
 
 function closeModal() {
@@ -155,8 +250,132 @@ function closeModal() {
   videoResolution.value = ''
   editingDigitalHumanCode.value = ''
   editingAgentId.value = ''
+  editingAssetId.value = ''
   videoFile.value = null
+  associatedAssetId.value = ''
+  assetActionId.value = ''
+  assetAvatarId.value = ''
+  assetAvatarGender.value = '女'
+  assetDefaultVoiceId.value = ''
+  assetAvatarDescription.value = ''
+  assetPreviewFile.value = null
+  if (assetPreviewUrl.value) URL.revokeObjectURL(assetPreviewUrl.value)
+  assetPreviewUrl.value = ''
+  assetVoiceId.value = ''
+  assetVoiceGender.value = '女声'
+  assetVoiceType.value = '标准音色'
+  assetVoicePitch.value = 1
+  assetVoiceSpeed.value = 1
+  assetVoiceDescription.value = ''
+  assetAudioFile.value = null
+  if (assetAudioPreviewUrl.value) URL.revokeObjectURL(assetAudioPreviewUrl.value)
+  assetAudioPreviewUrl.value = ''
+  assetBackgroundType.value = '透明背景'
+  assetBackgroundDescription.value = ''
+  assetBackgroundPreviewFile.value = null
+  if (assetBackgroundPreviewUrl.value) URL.revokeObjectURL(assetBackgroundPreviewUrl.value)
+  assetBackgroundPreviewUrl.value = ''
+  assetBackgroundMaterialFile.value = null
+  assetBackgroundWebUrl.value = ''
   if (videoInput.value) videoInput.value.value = ''
+  if (assetAudioInput.value) assetAudioInput.value.value = ''
+  if (assetPreviewInput.value) assetPreviewInput.value.value = ''
+  if (assetBackgroundPreviewInput.value) assetBackgroundPreviewInput.value.value = ''
+  if (assetBackgroundMaterialInput.value) assetBackgroundMaterialInput.value.value = ''
+}
+
+function handleAssetPreviewChange(event) {
+  const file = event.target.files?.[0] || null
+  if (assetPreviewUrl.value) URL.revokeObjectURL(assetPreviewUrl.value)
+  assetPreviewFile.value = file
+  assetPreviewUrl.value = file ? URL.createObjectURL(file) : ''
+}
+
+function clearAssetPreview() {
+  if (assetPreviewUrl.value) URL.revokeObjectURL(assetPreviewUrl.value)
+  assetPreviewFile.value = null
+  assetPreviewUrl.value = ''
+  if (assetPreviewInput.value) assetPreviewInput.value.value = ''
+}
+
+function handleAssetAudioChange(event) {
+  const file = event.target.files?.[0] || null
+  if (assetAudioPreviewUrl.value) URL.revokeObjectURL(assetAudioPreviewUrl.value)
+  assetAudioFile.value = file
+  assetAudioPreviewUrl.value = file ? URL.createObjectURL(file) : ''
+}
+
+function clearAssetAudio() {
+  if (assetAudioPreviewUrl.value) URL.revokeObjectURL(assetAudioPreviewUrl.value)
+  assetAudioFile.value = null
+  assetAudioPreviewUrl.value = ''
+  if (assetAudioInput.value) assetAudioInput.value.value = ''
+}
+
+function handleAssetBackgroundPreviewChange(event) {
+  const file = event.target.files?.[0] || null
+  if (assetBackgroundPreviewUrl.value) URL.revokeObjectURL(assetBackgroundPreviewUrl.value)
+  assetBackgroundPreviewFile.value = file
+  assetBackgroundPreviewUrl.value = file ? URL.createObjectURL(file) : ''
+}
+
+function clearAssetBackgroundPreview() {
+  if (assetBackgroundPreviewUrl.value) URL.revokeObjectURL(assetBackgroundPreviewUrl.value)
+  assetBackgroundPreviewFile.value = null
+  assetBackgroundPreviewUrl.value = ''
+  if (assetBackgroundPreviewInput.value) assetBackgroundPreviewInput.value.value = ''
+}
+
+function handleAssetBackgroundMaterialChange(event) {
+  assetBackgroundMaterialFile.value = event.target.files?.[0] || null
+}
+
+function clearAssetBackgroundMaterial() {
+  assetBackgroundMaterialFile.value = null
+  if (assetBackgroundMaterialInput.value) assetBackgroundMaterialInput.value.value = ''
+}
+
+function openAssetEditor(row) {
+  editingAssetId.value = row.subtitle
+  activeAssetEdition.value = row.edition
+  activeAssetCategory.value = row.category
+  projectName.value = row.name
+  associatedAssetId.value = row.linkedAvatarId || (row.category === '动作管理' ? assetAvatarOptions.value[0]?.subtitle || '' : '')
+  assetActionId.value = row.actionId || (row.category === '动作管理' ? row.subtitle : '')
+  assetAvatarId.value = row.avatarId || (row.category === '形象管理' ? row.subtitle : '')
+  assetAvatarGender.value = row.gender || '女'
+  assetDefaultVoiceId.value = row.defaultVoiceId || assetVoiceOptions.value[0]?.subtitle || ''
+  assetAvatarDescription.value = row.description || (row.category === '形象管理' ? `${row.name}形象资产` : '')
+  assetVoiceId.value = row.voiceId || (row.category === '音色管理' ? row.subtitle : '')
+  assetVoiceGender.value = row.gender || '女声'
+  assetVoiceType.value = row.voiceType || '标准音色'
+  assetVoicePitch.value = row.pitch ?? 1
+  assetVoiceSpeed.value = row.speed ?? 1
+  assetVoiceDescription.value = row.description || (row.category === '音色管理' ? `${row.name}音色资产` : '')
+  assetBackgroundType.value = row.backgroundType || '透明背景'
+  assetBackgroundDescription.value = row.description || (row.category === '预设背景管理' ? `${row.name}背景资产` : '')
+  assetBackgroundWebUrl.value = row.backgroundWebUrl || ''
+  modalOpen.value = true
+}
+
+function deleteAsset(row) {
+  if (!window.confirm(`确定删除资产“${row.name}”吗？删除后无法恢复。`)) return
+  if (typeof row.preview === 'string' && row.preview.startsWith('blob:')) URL.revokeObjectURL(row.preview)
+  if (typeof row.backgroundPreview === 'string' && row.backgroundPreview.startsWith('blob:')) URL.revokeObjectURL(row.backgroundPreview)
+  assetRows.value = assetRows.value.filter((item) => item.subtitle !== row.subtitle)
+  showToast('资产已删除')
+}
+
+function setDefaultAsset(row) {
+  if (!['形象管理', '预设背景管理'].includes(row.category) || row.isDefault) return
+  const updateDefaultState = (rows) => rows.forEach((item) => {
+    if (item.edition === row.edition && item.category === row.category) {
+      item.isDefault = item.subtitle === row.subtitle
+    }
+  })
+  updateDefaultState(assetRows.value)
+  updateDefaultState(moduleData.assets.rows)
+  showToast(`已将“${row.name}”设为${row.category === '形象管理' ? '默认形象' : '默认背景'}`)
 }
 
 function closeBenefitModal() {
@@ -262,6 +481,17 @@ function deleteResource(row) {
   showToast('资源已删除')
 }
 
+function selectAssetEdition(edition) {
+  activeAssetEdition.value = edition
+  activeAssetCategory.value = '形象管理'
+  activeBackgroundType.value = '全部类型'
+}
+
+function selectAssetCategory(category) {
+  activeAssetCategory.value = category
+  activeBackgroundType.value = '全部类型'
+}
+
 function generateAuthorizationCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   const part = (length) => Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -285,6 +515,14 @@ function clearVideo() {
 function openImagePreview(row) {
   imagePreviewSrc.value = row.preview
   imagePreviewTitle.value = row.name
+  imagePreviewType.value = 'avatar'
+  imagePreviewOpen.value = true
+}
+
+function openBackgroundPreview(row) {
+  imagePreviewSrc.value = row.backgroundPreview
+  imagePreviewTitle.value = row.name
+  imagePreviewType.value = 'background'
   imagePreviewOpen.value = true
 }
 
@@ -292,9 +530,87 @@ function closeImagePreview() {
   imagePreviewOpen.value = false
   imagePreviewSrc.value = ''
   imagePreviewTitle.value = ''
+  imagePreviewType.value = 'avatar'
 }
 
 function submitCreate() {
+  if (route.meta.moduleKey === 'assets') {
+    const editingIndex = assetRows.value.findIndex((row) => row.subtitle === editingAssetId.value)
+    const existingAsset = editingIndex >= 0 ? assetRows.value[editingIndex] : null
+    const linkedAvatar = assetAvatarOptions.value.find((row) => row.subtitle === associatedAssetId.value)
+    const uploadedFile = activeAssetCategory.value === '音色管理'
+      ? assetAudioFile.value
+      : activeAssetCategory.value === '预设背景管理'
+        ? assetBackgroundMaterialFile.value
+        : videoFile.value
+    const existingFileInfo = existingAsset?.extra?.split(' · 关联：')[0] || ''
+    const uploadedFileInfo = uploadedFile
+      ? `${uploadedFile.name} · ${(uploadedFile.size / 1024 / 1024).toFixed(1)} MB${activeAssetCategory.value === '形象管理' && assetPreviewFile.value ? ` · 预览：${assetPreviewFile.value.name}` : ''}`
+      : existingFileInfo || '新建资产'
+    const assetFileInfo = activeAssetCategory.value === '预设背景管理'
+      ? assetBackgroundType.value === '透明背景'
+        ? '透明背景 · 无需背景素材'
+        : assetBackgroundType.value === '网页背景'
+        ? `网页背景 · ${assetBackgroundWebUrl.value.trim()}`
+        : `${assetBackgroundType.value} · ${uploadedFileInfo}`
+      : uploadedFileInfo
+    const updatedAsset = {
+      ...existingAsset,
+      name: projectName.value,
+      subtitle: existingAsset?.subtitle || `AST-${Date.now().toString().slice(-6)}`,
+      edition: activeAssetEdition.value,
+      category: activeAssetCategory.value,
+      type: activeAssetCategory.value,
+      extra: activeAssetCategory.value === '动作管理' && linkedAvatar
+        ? `${assetFileInfo} · 关联：${linkedAvatar.name}`
+        : assetFileInfo,
+      linkedAvatarId: linkedAvatar?.subtitle || '',
+      actionId: activeAssetCategory.value === '动作管理' ? assetActionId.value.trim() : '',
+      avatarId: activeAssetCategory.value === '形象管理' ? assetAvatarId.value.trim() : '',
+      gender: activeAssetCategory.value === '形象管理'
+        ? assetAvatarGender.value
+        : activeAssetCategory.value === '音色管理'
+          ? assetVoiceGender.value
+          : '',
+      defaultVoiceId: activeAssetCategory.value === '形象管理' ? assetDefaultVoiceId.value : '',
+      description: activeAssetCategory.value === '形象管理'
+        ? assetAvatarDescription.value.trim()
+        : activeAssetCategory.value === '音色管理'
+          ? assetVoiceDescription.value.trim()
+          : activeAssetCategory.value === '预设背景管理'
+            ? assetBackgroundDescription.value.trim()
+            : '',
+      preview: activeAssetCategory.value === '形象管理' && assetPreviewFile.value
+        ? URL.createObjectURL(assetPreviewFile.value)
+        : existingAsset?.preview || '',
+      previewName: activeAssetCategory.value === '形象管理' ? assetPreviewFile.value?.name || existingAsset?.previewName || '' : '',
+      voiceId: activeAssetCategory.value === '音色管理' ? assetVoiceId.value.trim() : '',
+      voiceType: activeAssetCategory.value === '音色管理' ? assetVoiceType.value : '',
+      pitch: activeAssetCategory.value === '音色管理' ? assetVoicePitch.value : null,
+      speed: activeAssetCategory.value === '音色管理' ? assetVoiceSpeed.value : null,
+      backgroundType: activeAssetCategory.value === '预设背景管理' ? assetBackgroundType.value : '',
+      backgroundPreview: activeAssetCategory.value === '预设背景管理' && assetBackgroundPreviewFile.value
+        ? URL.createObjectURL(assetBackgroundPreviewFile.value)
+        : existingAsset?.backgroundPreview || '',
+      backgroundPreviewName: activeAssetCategory.value === '预设背景管理'
+        ? assetBackgroundPreviewFile.value?.name || existingAsset?.backgroundPreviewName || ''
+        : '',
+      backgroundMaterialName: activeAssetCategory.value === '预设背景管理'
+        ? assetBackgroundMaterialFile.value?.name || existingAsset?.backgroundMaterialName || ''
+        : '',
+      backgroundWebUrl: activeAssetCategory.value === '预设背景管理' && assetBackgroundType.value === '网页背景'
+        ? assetBackgroundWebUrl.value.trim()
+        : '',
+      date: '刚刚',
+      status: '可用',
+      tone: activeAssetEdition.value === '2D本地版' ? 'violet' : 'blue',
+    }
+    if (editingIndex >= 0) assetRows.value[editingIndex] = updatedAsset
+    else assetRows.value.unshift(updatedAsset)
+    closeModal()
+    showToast(editingIndex >= 0 ? '资产修改成功' : '资产创建成功')
+    return
+  }
   if (route.meta.moduleKey === 'knowledge') {
     const createdAt = new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-').replaceAll('/', '-')
     knowledgeRows.value.unshift({
@@ -382,6 +698,7 @@ function submitCreate() {
         appCode: generateAppCode(),
         resolution: videoResolution.value,
         preview: typeLabel === '2D在线版' ? moduleData.digitalHumans.rows[0].preview : moduleData.digitalHumans.rows[2].preview,
+        isTemplate: false,
         tone: 'violet',
       }
       agentRows.value.unshift(newAgent)
@@ -417,6 +734,44 @@ function deleteDigitalHuman(row) {
   if (!window.confirm(`确定删除数字人“${row.name}”吗？`)) return
   digitalHumanRows.value = digitalHumanRows.value.filter((item) => item.appCode !== row.appCode)
   showToast('数字人已删除')
+}
+
+function toggleDigitalHumanTemplate(row) {
+  row.isTemplate = !row.isTemplate
+  const sourceRow = moduleData.digitalHumans.rows.find((item) => item.appCode === row.appCode)
+  if (sourceRow) sourceRow.isTemplate = row.isTemplate
+  showToast(row.isTemplate ? '已设为数字人应用模板' : '已取消数字人应用模板')
+}
+
+function copyDigitalHuman(row) {
+  const sourceAgent = agentRows.value.find((agent) => agent.subtitle === row.linkedAgentId)
+    || moduleData.agents.rows.find((agent) => agent.name === row.extra)
+  const createdAt = new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-')
+  const agentId = `Agent-${Date.now().toString().slice(-6)}`
+  const agentName = `${row.name}-副本智能体`
+  const copiedAgent = {
+    ...(sourceAgent || {}),
+    name: agentName,
+    subtitle: agentId,
+    description: `数字人“${row.name}-副本”自动创建的专属智能体`,
+    createdAt,
+    date: '刚刚',
+    isTemplate: false,
+  }
+  const copiedHuman = {
+    ...row,
+    name: `${row.name}-副本`,
+    extra: agentName,
+    linkedAgentId: agentId,
+    createdAt,
+    appCode: generateAppCode(),
+    isTemplate: false,
+  }
+  agentRows.value.unshift(copiedAgent)
+  digitalHumanRows.value.unshift(copiedHuman)
+  moduleData.agents.rows.unshift(copiedAgent)
+  moduleData.digitalHumans.rows.unshift(copiedHuman)
+  showToast('数字人应用已复制，并创建新的专属智能体')
 }
 
 function toggleAgentTemplate(row) {
@@ -622,9 +977,9 @@ function statusClass(status) {
         <h1>{{ current.title }}</h1>
         <p>{{ current.description }}</p>
       </div>
-      <button class="primary-button" @click="openModal">
+      <button class="primary-button" :class="{ 'tutorial-target-action': highlightNewTraining || highlightCreateKnowledge || highlightCreateDigitalHuman }" @click="handlePrimaryActionClick">
         <AppIcon name="plus" :size="18" :stroke-width="2.2" />
-        {{ current.action }}
+        {{ primaryActionLabel }}
       </button>
     </section>
 
@@ -671,7 +1026,7 @@ function statusClass(status) {
 
       <div v-if="route.meta.moduleKey === 'digitalHumans'" class="digital-human-grid">
         <article
-          v-for="row in filteredRows"
+          v-for="row in paginatedDigitalHumanRows"
           :key="row.appCode"
           class="digital-human-card"
           role="link"
@@ -682,6 +1037,7 @@ function statusClass(status) {
           <div class="digital-human-card-image">
             <img :src="row.preview" :alt="`${row.name}形象预览`" />
             <span class="digital-human-type">{{ row.type }}</span>
+            <span v-if="row.isTemplate" class="digital-human-template-badge"><AppIcon name="check" :size="12" />模板</span>
             <span class="card-preview-action">进入详情<AppIcon name="chevron" :size="15" /></span>
           </div>
           <div class="digital-human-card-body">
@@ -706,7 +1062,9 @@ function statusClass(status) {
               </div>
             </dl>
             <div class="digital-human-card-actions">
+              <button class="card-template-button" :class="{ active: row.isTemplate }" @click.stop="toggleDigitalHumanTemplate(row)"><AppIcon name="check" :size="15" />{{ row.isTemplate ? '取消模板' : '设为模板' }}</button>
               <button class="card-delete-button" @click.stop="deleteDigitalHuman(row)"><AppIcon name="close" :size="15" />删除</button>
+              <button class="card-copy-button" @click.stop="copyDigitalHuman(row)"><AppIcon name="copy" :size="15" />复制</button>
               <button class="card-settings-button" @click.stop="openDigitalHumanSettings(row)"><AppIcon name="edit" :size="15" />设置</button>
             </div>
           </div>
@@ -715,6 +1073,15 @@ function statusClass(status) {
           <AppIcon name="search" :size="30" />
           <strong>没有找到匹配的数字人</strong>
           <span>试试调整搜索关键词</span>
+        </div>
+        <div v-if="filteredRows.length > 0" class="digital-human-pagination">
+          <span>每页 4 条，共 {{ filteredRows.length }} 条</span>
+          <div class="pagination" aria-label="数字人列表分页">
+            <button type="button" :disabled="digitalHumanPage === 1" @click="digitalHumanPage--">上一页</button>
+            <button type="button" class="active" aria-current="page">{{ digitalHumanPage }}</button>
+            <button type="button" :disabled="digitalHumanPage === digitalHumanTotalPages" @click="digitalHumanPage++">下一页</button>
+          </div>
+          <span>第 {{ digitalHumanPage }} / {{ digitalHumanTotalPages }} 页</span>
         </div>
       </div>
 
@@ -803,6 +1170,62 @@ function statusClass(status) {
         </div>
       </div>
 
+      <div v-else-if="route.meta.moduleKey === 'assets'" class="asset-classified-content">
+        <div class="asset-edition-tabs" role="tablist" aria-label="数字人资产类型">
+          <button v-for="edition in ['2D本地版', '2D在线版']" :key="edition" type="button" role="tab" :aria-selected="activeAssetEdition === edition" :class="{ active: activeAssetEdition === edition }" @click="selectAssetEdition(edition)">
+            <AppIcon :name="edition === '2D本地版' ? 'server' : 'video'" :size="17" />
+            <span><strong>{{ edition }}</strong><small>{{ edition === '2D本地版' ? '本地部署资产' : '云端在线资产' }}</small></span>
+            <em>{{ filteredRows.filter((row) => row.edition === edition).length }}</em>
+          </button>
+        </div>
+        <div class="asset-category-tabs" role="tablist" aria-label="资产模块">
+          <button v-for="category in assetCategories" :key="category" type="button" role="tab" :aria-selected="activeAssetCategory === category" :class="{ active: activeAssetCategory === category }" @click="selectAssetCategory(category)">
+            {{ category }}<span>{{ filteredRows.filter((row) => row.edition === activeAssetEdition && row.category === category).length }}</span>
+          </button>
+        </div>
+        <div v-if="activeAssetCategory === '预设背景管理'" class="background-type-filters" role="group" aria-label="背景类型筛选">
+          <span>背景类型</span>
+          <button v-for="type in ['全部类型', '透明背景', '图片背景', '视频背景', '网页背景']" :key="type" type="button" :class="{ active: activeBackgroundType === type }" @click="activeBackgroundType = type">
+            {{ type }}
+            <em>{{ type === '全部类型' ? filteredRows.filter((row) => row.edition === activeAssetEdition && row.category === '预设背景管理').length : filteredRows.filter((row) => row.edition === activeAssetEdition && row.category === '预设背景管理' && row.backgroundType === type).length }}</em>
+          </button>
+        </div>
+        <div class="table-scroll">
+          <table class="asset-classified-table">
+            <thead><tr><th>资产名称</th><th>版本类型</th><th>资产模块</th><th>文件信息</th><th>更新时间</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr v-for="row in filteredAssetRows" :key="row.subtitle">
+                <td>
+                  <div class="entity-cell">
+                    <button v-if="row.category === '形象管理' && row.preview" type="button" class="asset-avatar-preview-button" :aria-label="`放大查看${row.name}形象预览图`" title="点击放大预览" @click="openImagePreview(row)">
+                      <img :src="row.preview" :alt="`${row.name}形象预览图`" />
+                    </button>
+                    <button v-else-if="row.category === '预设背景管理' && row.backgroundPreview" type="button" class="asset-background-preview" :aria-label="`放大查看${row.name}背景预览图`" title="点击放大预览" @click="openBackgroundPreview(row)">
+                      <img :src="row.backgroundPreview" :alt="`${row.name}背景预览图`" />
+                    </button>
+                    <span v-else class="entity-avatar" :class="row.tone"><AppIcon :name="row.category === '动作管理' ? 'workflow' : row.category === '音色管理' ? 'message' : row.category === '预设背景管理' ? 'image' : 'user'" :size="17" /></span>
+                    <span><strong>{{ row.name }}</strong><small>{{ row.subtitle }}</small></span>
+                  </div>
+                </td>
+                <td><span class="type-tag">{{ row.edition }}</span></td>
+                <td>{{ row.category }}</td>
+                <td>{{ row.extra }}</td>
+                <td>{{ row.date }}</td>
+                <td><span class="status-tag" :class="statusClass(row.status)"><i></i>{{ row.status }}</span></td>
+                <td class="action-column">
+                  <div class="asset-row-actions">
+                    <button v-if="['形象管理', '预设背景管理'].includes(row.category)" type="button" class="asset-default-button" :class="{ active: row.isDefault }" :disabled="row.isDefault" @click="setDefaultAsset(row)"><AppIcon name="check" :size="13" />{{ row.isDefault ? '当前默认' : '设为默认' }}</button>
+                    <button type="button" @click="openAssetEditor(row)"><AppIcon name="edit" :size="13" />编辑</button>
+                    <button type="button" class="danger" @click="deleteAsset(row)"><AppIcon name="trash" :size="13" />删除</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="filteredAssetRows.length === 0" class="empty-state"><AppIcon name="folder" :size="30" /><strong>当前分类暂无资产</strong><span>点击右上角“上传资产”开始添加</span></div>
+        </div>
+      </div>
+
       <div v-else-if="route.meta.moduleKey === 'benefits'" class="table-scroll benefit-table-scroll">
         <table class="benefit-authorization-table">
           <thead><tr><th>授权名称</th><th>授权码</th><th>使用状态</th><th>到期时间</th><th>创建时间</th><th>绑定设备MAC地址</th></tr></thead>
@@ -879,7 +1302,7 @@ function statusClass(status) {
         </div>
       </div>
 
-      <div v-if="!['digitalHumans', 'agents', 'knowledge', 'resources'].includes(route.meta.moduleKey)" class="table-footer">
+      <div v-if="!['digitalHumans', 'agents', 'knowledge', 'resources', 'assets'].includes(route.meta.moduleKey)" class="table-footer">
         <span>显示 1–{{ filteredRows.length }} 条，共 {{ filteredRows.length }} 条</span>
         <div class="pagination"><button disabled>上一页</button><button class="active">1</button><button disabled>下一页</button></div>
       </div>
@@ -887,14 +1310,14 @@ function statusClass(status) {
 
     <Transition name="fade">
       <div v-if="modalOpen" class="modal-backdrop" @click.self="closeModal">
-        <div class="modal-card" :class="{ 'training-modal': route.meta.moduleKey === 'training', 'digital-human-modal': route.meta.moduleKey === 'digitalHumans' }">
+        <div class="modal-card" :class="{ 'training-modal': route.meta.moduleKey === 'training', 'digital-human-modal': route.meta.moduleKey === 'digitalHumans', 'avatar-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理', 'voice-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理', 'background-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' }">
           <button class="modal-close" aria-label="关闭" @click="closeModal"><AppIcon name="close" /></button>
           <div class="modal-icon"><AppIcon :name="current.icon" :size="25" /></div>
-          <h3>{{ editingAgentId ? '编辑智能体' : route.meta.moduleKey === 'digitalHumans' && editingDigitalHumanCode ? '设置数字人' : current.action }}</h3>
-          <p>{{ editingAgentId ? '修改智能体的名称和说明信息。' : route.meta.moduleKey === 'digitalHumans' && editingDigitalHumanCode ? '修改数字人的基础信息与关联配置。' : '填写基础信息，后续可以继续完善详细配置。' }}</p>
+          <h3>{{ editingAgentId ? '编辑智能体' : editingAssetId ? `编辑${activeAssetCategory.replace('管理', '')}资产` : route.meta.moduleKey === 'digitalHumans' && editingDigitalHumanCode ? '设置数字人' : primaryActionLabel }}</h3>
+          <p>{{ editingAgentId ? '修改智能体的名称和说明信息。' : editingAssetId ? '修改资产信息，未重新上传的素材将保留原文件。' : route.meta.moduleKey === 'digitalHumans' && editingDigitalHumanCode ? '修改数字人的基础信息与关联配置。' : '填写基础信息，后续可以继续完善详细配置。' }}</p>
           <form @submit.prevent="submitCreate">
-            <label>名称</label>
-            <input v-model="projectName" autofocus required :placeholder="`请输入${current.title}名称`" />
+            <label>{{ route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' ? '形象名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' ? '动作名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理' ? '音色名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' ? '背景名称' : '名称' }}</label>
+            <input v-model="projectName" autofocus required :placeholder="route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' ? '请输入形象名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' ? '请输入动作名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理' ? '请输入音色名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' ? '请输入背景名称' : `请输入${current.title}名称`" />
             <template v-if="route.meta.moduleKey === 'training'">
               <fieldset class="type-fieldset">
                 <legend>数字人类型</legend>
@@ -1013,6 +1436,133 @@ function statusClass(status) {
                 </div>
               </fieldset>
             </template>
+            <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理'">
+              <label for="asset-avatar-id">形象ID</label>
+              <input id="asset-avatar-id" v-model.trim="assetAvatarId" required placeholder="请输入形象ID" />
+              <div class="avatar-asset-form-grid">
+                <div>
+                  <label for="asset-avatar-gender">性别分类</label>
+                  <select id="asset-avatar-gender" v-model="assetAvatarGender" required>
+                    <option value="女">女</option>
+                    <option value="男">男</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="asset-default-voice">绑定默认音色</label>
+                  <select id="asset-default-voice" v-model="assetDefaultVoiceId" required>
+                    <option value="" disabled>请选择默认音色</option>
+                    <option v-for="voice in assetVoiceOptions" :key="voice.subtitle" :value="voice.subtitle">{{ voice.name }}（{{ voice.subtitle }}）</option>
+                  </select>
+                </div>
+              </div>
+              <small v-if="!assetVoiceOptions.length" class="form-error">暂无可绑定音色，请先上传音色资产</small>
+              <label for="asset-avatar-description">形象描述</label>
+              <textarea id="asset-avatar-description" v-model.trim="assetAvatarDescription" rows="3" maxlength="200" required placeholder="请输入形象特点和适用场景"></textarea>
+              <label>形象视频</label>
+              <label class="video-upload" :class="{ 'has-file': videoFile }">
+                <input ref="videoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" :required="!editingAssetId" @change="handleVideoChange" />
+                <span class="upload-icon"><AppIcon :name="videoFile ? 'check' : 'video'" :size="22" /></span>
+                <span class="upload-copy">
+                  <strong>{{ videoFile ? videoFile.name : '点击上传形象视频' }}</strong>
+                  <small>{{ videoFile ? `${(videoFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 MP4、MOV、WEBM、AVI 视频格式' }}</small>
+                </span>
+                <button v-if="videoFile" type="button" class="upload-remove" aria-label="移除形象视频" @click.prevent="clearVideo"><AppIcon name="close" :size="16" /></button>
+                <span v-else class="upload-action">选择视频</span>
+              </label>
+              <label>形象预览图</label>
+              <label class="video-upload asset-preview-upload" :class="{ 'has-file': assetPreviewFile }">
+                <input ref="assetPreviewInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" :required="!editingAssetId" @change="handleAssetPreviewChange" />
+                <span class="upload-icon"><img v-if="assetPreviewUrl" :src="assetPreviewUrl" alt="形象预览图缩略图" /><AppIcon v-else name="image" :size="22" /></span>
+                <span class="upload-copy"><strong>{{ assetPreviewFile ? assetPreviewFile.name : '点击上传形象预览图' }}</strong><small>{{ assetPreviewFile ? `${(assetPreviewFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 JPG、PNG、WEBP、GIF，建议使用9:16图片' }}</small></span>
+                <button v-if="assetPreviewFile" type="button" class="upload-remove" aria-label="移除形象预览图" @click.prevent="clearAssetPreview"><AppIcon name="close" :size="16" /></button>
+                <span v-else class="upload-action">选择图片</span>
+              </label>
+            </template>
+            <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理'">
+              <label for="asset-action-id">动作ID</label>
+              <input id="asset-action-id" v-model.trim="assetActionId" required placeholder="请输入动作ID，例如 xiaoran_action03" />
+              <label>动作视频</label>
+              <label class="video-upload" :class="{ 'has-file': videoFile }">
+                <input ref="videoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" :required="!editingAssetId" @change="handleVideoChange" />
+                <span class="upload-icon"><AppIcon :name="videoFile ? 'check' : 'video'" :size="22" /></span>
+                <span class="upload-copy"><strong>{{ videoFile ? videoFile.name : '点击上传动作视频' }}</strong><small>{{ videoFile ? `${(videoFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 MP4、MOV、WEBM、AVI 视频格式' }}</small></span>
+                <button v-if="videoFile" type="button" class="upload-remove" aria-label="移除动作视频" @click.prevent="clearVideo"><AppIcon name="close" :size="16" /></button>
+                <span v-else class="upload-action">选择视频</span>
+              </label>
+              <label for="asset-linked-avatar">关联形象资产</label>
+              <select id="asset-linked-avatar" v-model="associatedAssetId" class="asset-link-select" required>
+                <option value="" disabled>请选择需要关联的形象资产</option>
+                <option v-for="avatar in assetAvatarOptions" :key="avatar.subtitle" :value="avatar.subtitle">{{ avatar.name }}（{{ avatar.subtitle }}）</option>
+              </select>
+              <small v-if="!assetAvatarOptions.length" class="form-error">当前版本暂无可关联的形象资产，请先上传形象资产</small>
+            </template>
+            <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理'">
+              <div class="voice-asset-form-grid">
+                <div><label for="asset-voice-id">音色ID</label><input id="asset-voice-id" v-model.trim="assetVoiceId" required placeholder="请输入音色ID" /></div>
+                <div><label for="asset-voice-gender">性别分类</label><select id="asset-voice-gender" v-model="assetVoiceGender" required><option>女声</option><option>男声</option></select></div>
+              </div>
+              <fieldset class="voice-type-fieldset">
+                <legend>音色类型</legend>
+                <div class="voice-type-options">
+                  <label :class="{ selected: assetVoiceType === '标准音色' }"><input v-model="assetVoiceType" type="radio" value="标准音色" /><span class="type-radio"></span><span><strong>标准音色</strong><small>平台通用标准声音</small></span></label>
+                  <label :class="{ selected: assetVoiceType === '定制音色' }"><input v-model="assetVoiceType" type="radio" value="定制音色" /><span class="type-radio"></span><span><strong>定制音色</strong><small>专属训练定制声音</small></span></label>
+                </div>
+              </fieldset>
+              <div class="voice-range-grid">
+                <label for="asset-voice-pitch"><span>语调</span><strong>{{ Number(assetVoicePitch).toFixed(1) }}</strong><input id="asset-voice-pitch" v-model.number="assetVoicePitch" type="range" min="0" max="3" step="0.1" /></label>
+                <label for="asset-voice-speed"><span>音速</span><strong>{{ Number(assetVoiceSpeed).toFixed(1) }}</strong><input id="asset-voice-speed" v-model.number="assetVoiceSpeed" type="range" min="0" max="3" step="0.1" /></label>
+              </div>
+              <label for="asset-voice-description">描述</label>
+              <textarea id="asset-voice-description" v-model.trim="assetVoiceDescription" rows="3" maxlength="200" required placeholder="请输入音色特点和适用场景"></textarea>
+              <label>音色试听音频</label>
+              <label class="video-upload voice-audio-upload" :class="{ 'has-file': assetAudioFile }">
+                <input ref="assetAudioInput" type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4" :required="!editingAssetId" @change="handleAssetAudioChange" />
+                <span class="upload-icon"><AppIcon :name="assetAudioFile ? 'check' : 'message'" :size="22" /></span>
+                <span class="upload-copy"><strong>{{ assetAudioFile ? assetAudioFile.name : '点击上传音色试听音频' }}</strong><small>{{ assetAudioFile ? `${(assetAudioFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 MP3、WAV、OGG、M4A 音频格式' }}</small></span>
+                <button v-if="assetAudioFile" type="button" class="upload-remove" aria-label="移除试听音频" @click.prevent="clearAssetAudio"><AppIcon name="close" :size="16" /></button>
+                <span v-else class="upload-action">选择音频</span>
+              </label>
+              <audio v-if="assetAudioPreviewUrl" class="voice-audio-preview" :src="assetAudioPreviewUrl" controls></audio>
+            </template>
+            <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理'">
+              <fieldset class="background-type-fieldset">
+                <legend>背景类型</legend>
+                <div class="background-type-options">
+                  <label v-for="type in ['透明背景', '图片背景', '视频背景', '网页背景']" :key="type" :class="{ selected: assetBackgroundType === type }">
+                    <input v-model="assetBackgroundType" type="radio" name="asset-background-type" :value="type" required />
+                    <span class="background-type-icon"><AppIcon :name="type === '视频背景' ? 'video' : type === '网页背景' ? 'link' : 'image'" :size="18" /></span>
+                    <span><strong>{{ type }}</strong><small>{{ type === '透明背景' ? '使用透明通道素材' : type === '图片背景' ? '使用静态图片素材' : type === '视频背景' ? '使用动态视频素材' : '嵌入网页地址' }}</small></span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <label>背景预览图片</label>
+              <label class="video-upload asset-preview-upload" :class="{ 'has-file': assetBackgroundPreviewFile }">
+                <input ref="assetBackgroundPreviewInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" :required="!editingAssetId" @change="handleAssetBackgroundPreviewChange" />
+                <span class="upload-icon"><img v-if="assetBackgroundPreviewUrl" :src="assetBackgroundPreviewUrl" alt="背景预览图片缩略图" /><AppIcon v-else name="image" :size="22" /></span>
+                <span class="upload-copy"><strong>{{ assetBackgroundPreviewFile ? assetBackgroundPreviewFile.name : editingAssetId ? '保留原背景预览图片，或点击替换' : '点击上传背景预览图片' }}</strong><small>{{ assetBackgroundPreviewFile ? `${(assetBackgroundPreviewFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 JPG、PNG、WEBP、GIF' }}</small></span>
+                <button v-if="assetBackgroundPreviewFile" type="button" class="upload-remove" aria-label="移除背景预览图片" @click.prevent="clearAssetBackgroundPreview"><AppIcon name="close" :size="16" /></button>
+                <span v-else class="upload-action">选择图片</span>
+              </label>
+
+              <template v-if="assetBackgroundType === '网页背景'">
+                <label for="asset-background-web-url">背景素材</label>
+                <input id="asset-background-web-url" v-model.trim="assetBackgroundWebUrl" type="url" required placeholder="请输入网页地址，例如 https://example.com/background" />
+              </template>
+              <template v-else-if="assetBackgroundType !== '透明背景'">
+                <label>背景素材</label>
+                <label class="video-upload" :class="{ 'has-file': assetBackgroundMaterialFile }">
+                  <input ref="assetBackgroundMaterialInput" type="file" :accept="assetBackgroundType === '视频背景' ? 'video/mp4,video/quicktime,video/webm' : 'image/png,image/webp,image/jpeg'" :required="!editingAssetId" @change="handleAssetBackgroundMaterialChange" />
+                  <span class="upload-icon"><AppIcon :name="assetBackgroundMaterialFile ? 'check' : assetBackgroundType === '视频背景' ? 'video' : 'image'" :size="22" /></span>
+                  <span class="upload-copy"><strong>{{ assetBackgroundMaterialFile ? assetBackgroundMaterialFile.name : editingAssetId ? '保留原背景素材，或点击替换' : '点击上传背景素材' }}</strong><small>{{ assetBackgroundMaterialFile ? `${(assetBackgroundMaterialFile.size / 1024 / 1024).toFixed(1)} MB` : assetBackgroundType === '视频背景' ? '支持 MP4、MOV、WEBM' : assetBackgroundType === '透明背景' ? '支持带透明通道的 PNG、WEBP' : '支持 JPG、PNG、WEBP' }}</small></span>
+                  <button v-if="assetBackgroundMaterialFile" type="button" class="upload-remove" aria-label="移除背景素材" @click.prevent="clearAssetBackgroundMaterial"><AppIcon name="close" :size="16" /></button>
+                  <span v-else class="upload-action">选择素材</span>
+                </label>
+              </template>
+
+              <label for="asset-background-description">描述</label>
+              <textarea id="asset-background-description" v-model.trim="assetBackgroundDescription" rows="3" maxlength="200" required placeholder="请输入背景特点和适用场景"></textarea>
+            </template>
             <template v-else-if="route.meta.moduleKey === 'agents'">
               <label>说明 <span>选填</span></label>
               <textarea v-model.trim="agentDescription" rows="3" placeholder="补充智能体的用途和说明"></textarea>
@@ -1023,7 +1573,7 @@ function statusClass(status) {
             </template>
             <div class="modal-actions">
               <button type="button" class="secondary-button" @click="closeModal">取消</button>
-              <button type="submit" class="primary-button">{{ editingAgentId ? '保存修改' : route.meta.moduleKey === 'digitalHumans' && editingDigitalHumanCode ? '保存设置' : '确认创建' }}</button>
+              <button type="submit" class="primary-button">{{ editingAgentId || editingAssetId ? '保存修改' : route.meta.moduleKey === 'digitalHumans' && editingDigitalHumanCode ? '保存设置' : route.meta.moduleKey === 'assets' ? '确认上传' : '确认创建' }}</button>
             </div>
           </form>
         </div>
@@ -1258,12 +1808,12 @@ function statusClass(status) {
 
     <Transition name="fade">
       <div v-if="imagePreviewOpen" class="image-preview-backdrop" @click.self="closeImagePreview">
-        <div class="image-preview-dialog" role="dialog" aria-modal="true" :aria-label="`${imagePreviewTitle}形象预览`">
+        <div class="image-preview-dialog" :class="{ 'background-preview-dialog': imagePreviewType === 'background' }" role="dialog" aria-modal="true" :aria-label="`${imagePreviewTitle}${imagePreviewType === 'background' ? '背景' : '形象'}预览`">
           <button class="image-preview-close" aria-label="关闭预览" @click="closeImagePreview"><AppIcon name="close" :size="20" /></button>
-          <img :src="imagePreviewSrc" :alt="`${imagePreviewTitle}形象大图`" />
+          <img :src="imagePreviewSrc" :alt="`${imagePreviewTitle}${imagePreviewType === 'background' ? '背景' : '形象'}大图`" />
           <div class="image-preview-caption">
             <strong>{{ imagePreviewTitle }}</strong>
-            <span>9:16 形象预览</span>
+            <span>{{ imagePreviewType === 'background' ? '16:9 背景预览' : '9:16 形象预览' }}</span>
           </div>
         </div>
       </div>

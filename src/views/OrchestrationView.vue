@@ -1,6 +1,8 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
+
+const platformTutorial = inject('platformTutorial', null)
 
 const localAvatars = [
   '沐晴 · 本地主播',
@@ -42,6 +44,7 @@ const formError = ref('')
 const toastVisible = ref(false)
 const toastText = ref('')
 const form = ref(createEmptyForm())
+const highlightCreateOrchestration = computed(() => platformTutorial?.tutorialOpen.value && platformTutorial?.tutorialStep.value === 4)
 
 function createEmptyForm() {
   return { name: '', mainAvatar: '', actionAvatars: [], description: '' }
@@ -52,6 +55,14 @@ function openCreate() {
   form.value = createEmptyForm()
   formError.value = ''
   modalOpen.value = true
+}
+
+function handleCreateClick() {
+  if (highlightCreateOrchestration.value) {
+    platformTutorial?.completeTutorialStep(4)
+    return
+  }
+  openCreate()
 }
 
 function openEdit(item) {
@@ -116,7 +127,7 @@ function showToast(message) {
         <h1>动作编排</h1>
         <p>为数字人组合和管理不同场景下的形象动作。</p>
       </div>
-      <button class="primary-button" @click="openCreate">
+      <button class="primary-button" :class="{ 'tutorial-target-action': highlightCreateOrchestration }" @click="handleCreateClick">
         <AppIcon name="plus" :size="18" :stroke-width="2.2" />
         新增编排
       </button>
@@ -126,7 +137,7 @@ function showToast(message) {
       <span class="notice-icon"><AppIcon name="info" :size="21" /></span>
       <div>
         <strong>动作编排仅支持 2D 本地版数字人</strong>
-        <p>请先完成 2D 本地版形象训练，再选择对应的主形象和动作形象进行编排。</p>
+        <p>请先完成 2D 本地版形象训练，再选择对应的播报形象和动作形象进行编排。</p>
       </div>
     </section>
 
@@ -143,7 +154,7 @@ function showToast(message) {
           <thead>
             <tr>
               <th>编排名称</th>
-              <th>主形象</th>
+              <th>播报形象</th>
               <th>动作形象列表</th>
               <th>描述</th>
               <th>更新时间</th>
@@ -188,9 +199,9 @@ function showToast(message) {
             <label for="orchestration-name">名称</label>
             <input id="orchestration-name" v-model.trim="form.name" autofocus required placeholder="请输入编排名称" />
 
-            <label for="main-avatar">主形象</label>
+            <label for="main-avatar">播报形象</label>
             <select id="main-avatar" v-model="form.mainAvatar" required>
-              <option value="" disabled>请选择 2D 本地版主形象</option>
+              <option value="" disabled>请选择 2D 本地版播报形象</option>
               <option v-for="avatar in localAvatars" :key="avatar" :value="avatar">{{ avatar }}</option>
             </select>
 
