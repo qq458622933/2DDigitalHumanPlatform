@@ -76,6 +76,8 @@ const activeBackgroundType = ref('全部类型')
 const associatedAssetId = ref('')
 const assetActionId = ref('')
 const assetAvatarId = ref('')
+const assetApiKey = ref('')
+const showAssetApiKey = ref(false)
 const assetAvatarGender = ref('女')
 const assetDefaultVoiceId = ref('')
 const assetAvatarDescription = ref('')
@@ -261,6 +263,8 @@ function closeModal() {
   associatedAssetId.value = ''
   assetActionId.value = ''
   assetAvatarId.value = ''
+  assetApiKey.value = ''
+  showAssetApiKey.value = false
   assetAvatarGender.value = '女'
   assetDefaultVoiceId.value = ''
   assetAvatarDescription.value = ''
@@ -350,6 +354,8 @@ function openAssetEditor(row) {
   associatedAssetId.value = row.linkedAvatarId || (row.category === '动作管理' ? assetAvatarOptions.value[0]?.subtitle || '' : '')
   assetActionId.value = row.actionId || (row.category === '动作管理' ? row.subtitle : '')
   assetAvatarId.value = row.avatarId || (row.category === '形象管理' ? row.subtitle : '')
+  assetApiKey.value = row.apiKey || ''
+  showAssetApiKey.value = false
   assetAvatarGender.value = row.gender || '女'
   assetDefaultVoiceId.value = row.defaultVoiceId || assetVoiceOptions.value[0]?.subtitle || ''
   assetAvatarDescription.value = row.description || (row.category === '形象管理' ? `${row.name}形象资产` : '')
@@ -607,6 +613,7 @@ function submitCreate() {
       linkedAvatarId: linkedAvatar?.subtitle || '',
       actionId: activeAssetCategory.value === '动作管理' ? assetActionId.value.trim() : '',
       avatarId: activeAssetCategory.value === '形象管理' ? assetAvatarId.value.trim() : '',
+      apiKey: activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D在线版' ? assetApiKey.value.trim() : '',
       gender: activeAssetCategory.value === '形象管理'
         ? assetAvatarGender.value
         : activeAssetCategory.value === '音色管理'
@@ -1491,6 +1498,13 @@ function statusClass(status) {
             <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理'">
               <label for="asset-avatar-id">形象ID</label>
               <input id="asset-avatar-id" v-model.trim="assetAvatarId" required placeholder="请输入形象ID" />
+              <template v-if="activeAssetEdition === '2D在线版'">
+                <label for="asset-api-key">API 密钥</label>
+                <div class="resource-secret-field asset-api-key-field">
+                  <input id="asset-api-key" v-model.trim="assetApiKey" :type="showAssetApiKey ? 'text' : 'password'" required autocomplete="off" placeholder="请输入 2D 在线版形象 API 密钥" />
+                  <button type="button" :aria-label="showAssetApiKey ? '隐藏API密钥' : '显示API密钥'" :title="showAssetApiKey ? '隐藏' : '显示'" @click="showAssetApiKey = !showAssetApiKey"><AppIcon :name="showAssetApiKey ? 'eye-off' : 'eye'" :size="16" /></button>
+                </div>
+              </template>
               <div class="avatar-asset-form-grid">
                 <div>
                   <label for="asset-avatar-gender">性别分类</label>
