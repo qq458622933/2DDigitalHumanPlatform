@@ -280,7 +280,7 @@ provide('platformTutorial', { tutorialOpen, tutorialStep, completeTutorialStep, 
         </template>
         <template v-else-if="tutorialStep === 2">
           <h2>请点击“新建训练”</h2>
-          <p>请上传数字人的形象训练视频，推荐视频为 MP4 格式，若无形象训练次数请联系管理员进行授权。</p>
+          <p>请上传数字人的形象训练视频和形象预览图，训练视频推荐使用 MP4 格式，形象预览图建议使用 9:16 竖版图片；若无形象训练次数，请联系管理员进行授权。</p>
           <div class="tutorial-hint">
             <span><AppIcon name="chevron" :size="15" />点击右上角高亮按钮继续</span>
             <div class="tutorial-hint-actions"><button type="button" class="tutorial-previous" @click="previousTutorialStep">上一步</button><button type="button" class="tutorial-next" @click="nextTutorialStep">下一步</button><button type="button" class="tutorial-skip" @click="closeTutorial">跳过教程</button></div>

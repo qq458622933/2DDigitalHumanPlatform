@@ -24,6 +24,9 @@ const associatedAgent = ref('')
 const videoResolution = ref('')
 const videoFile = ref(null)
 const videoInput = ref(null)
+const trainingPreviewFile = ref(null)
+const trainingPreviewInput = ref(null)
+const trainingPreviewUrl = ref('')
 const trainingRows = ref(moduleData.training.rows.map((row) => ({ ...row })))
 const agentRows = ref(moduleData.agents.rows.map((row) => ({ ...row })))
 const digitalHumanRows = ref(moduleData.digitalHumans.rows.map((row) => ({ ...row })))
@@ -252,6 +255,9 @@ function closeModal() {
   editingAgentId.value = ''
   editingAssetId.value = ''
   videoFile.value = null
+  trainingPreviewFile.value = null
+  if (trainingPreviewUrl.value) URL.revokeObjectURL(trainingPreviewUrl.value)
+  trainingPreviewUrl.value = ''
   associatedAssetId.value = ''
   assetActionId.value = ''
   assetAvatarId.value = ''
@@ -278,6 +284,7 @@ function closeModal() {
   assetBackgroundMaterialFile.value = null
   assetBackgroundWebUrl.value = ''
   if (videoInput.value) videoInput.value.value = ''
+  if (trainingPreviewInput.value) trainingPreviewInput.value.value = ''
   if (assetAudioInput.value) assetAudioInput.value.value = ''
   if (assetPreviewInput.value) assetPreviewInput.value.value = ''
   if (assetBackgroundPreviewInput.value) assetBackgroundPreviewInput.value.value = ''
@@ -512,6 +519,20 @@ function clearVideo() {
   if (videoInput.value) videoInput.value.value = ''
 }
 
+function handleTrainingPreviewChange(event) {
+  const file = event.target.files?.[0] || null
+  if (trainingPreviewUrl.value) URL.revokeObjectURL(trainingPreviewUrl.value)
+  trainingPreviewFile.value = file
+  trainingPreviewUrl.value = file ? URL.createObjectURL(file) : ''
+}
+
+function clearTrainingPreview() {
+  trainingPreviewFile.value = null
+  if (trainingPreviewUrl.value) URL.revokeObjectURL(trainingPreviewUrl.value)
+  trainingPreviewUrl.value = ''
+  if (trainingPreviewInput.value) trainingPreviewInput.value.value = ''
+}
+
 function openImagePreview(row) {
   imagePreviewSrc.value = row.preview
   imagePreviewTitle.value = row.name
@@ -534,6 +555,25 @@ function closeImagePreview() {
 }
 
 function submitCreate() {
+  if (route.meta.moduleKey === 'training') {
+    const createdAt = formatDateTime(new Date())
+    trainingRows.value.unshift({
+      name: projectName.value,
+      subtitle: `ID: AVT-${Date.now().toString().slice(-8)}`,
+      type: digitalHumanType.value === 'online' ? '2D在线版' : '2D本地版',
+      avatarType: digitalHumanType.value === 'local' ? localAvatarType.value : '播报形象',
+      date: createdAt,
+      progress: 0,
+      status: '待训练',
+      videoName: videoFile.value?.name || '',
+      previewName: trainingPreviewFile.value?.name || '',
+      preview: URL.createObjectURL(trainingPreviewFile.value),
+      tone: digitalHumanType.value === 'online' ? 'violet' : 'cyan',
+    })
+    closeModal()
+    showToast('训练任务创建成功，等待开始训练')
+    return
+  }
   if (route.meta.moduleKey === 'assets') {
     const editingIndex = assetRows.value.findIndex((row) => row.subtitle === editingAssetId.value)
     const existingAsset = editingIndex >= 0 ? assetRows.value[editingIndex] : null
@@ -1392,6 +1432,18 @@ function statusClass(status) {
                   </ol>
                 </div>
               </Transition>
+
+              <label>形象预览图</label>
+              <label class="video-upload asset-preview-upload training-preview-upload" :class="{ 'has-file': trainingPreviewFile }">
+                <input ref="trainingPreviewInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required @change="handleTrainingPreviewChange" />
+                <span class="upload-icon"><img v-if="trainingPreviewUrl" :src="trainingPreviewUrl" alt="形象预览图缩略图" /><AppIcon v-else name="image" :size="22" /></span>
+                <span class="upload-copy">
+                  <strong>{{ trainingPreviewFile ? trainingPreviewFile.name : '点击上传形象预览图' }}</strong>
+                  <small>{{ trainingPreviewFile ? `${(trainingPreviewFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 JPG、PNG、WEBP、GIF，建议使用 9:16 竖版图片' }}</small>
+                </span>
+                <button v-if="trainingPreviewFile" type="button" class="upload-remove" aria-label="移除形象预览图" @click.prevent="clearTrainingPreview"><AppIcon name="close" :size="16" /></button>
+                <span v-else class="upload-action">选择图片</span>
+              </label>
             </template>
             <template v-else-if="route.meta.moduleKey === 'digitalHumans'">
               <fieldset class="type-fieldset">
