@@ -36,6 +36,9 @@ const editingQnaIndex = ref(-1)
 const qnaQuestion = ref('')
 const qnaAnswer = ref('')
 const qnaSimilarQuestions = ref([''])
+const actionPickerOpen = ref(false)
+const activeActionAssetType = ref('通用动作')
+const selectedAnswerActionId = ref('')
 const qnaRows = ref([
   { question: '继续讲解', answer: '好的，现在为您继续讲解。', hits: 12, createdAt: '2026-07-16 05:53:58', updatedAt: '2026-08-03 10:26:18' },
   { question: '介绍一下产品功能', answer: '该产品提供数字人训练、智能体配置和内容生成能力。', hits: 28, createdAt: '2026-07-16 05:53:58', updatedAt: '2026-08-01 09:42:06' },
@@ -82,6 +85,14 @@ const answerTools = [
   { label: '前置视频', icon: 'video', tone: 'cyan' },
   { label: '停顿', icon: 'clock', tone: 'yellow' },
 ]
+const answerActionAssets = [
+  { id: 'xiaoran_00', name: '标准讲解', type: '通用动作', preview: moduleData.digitalHumans.rows[0].preview },
+  { id: 'xiaoran_action03', name: '右手指引', type: '通用动作', preview: moduleData.digitalHumans.rows[1].preview },
+  { id: 'xiaoran_action04', name: '双手展示', type: '通用动作', preview: moduleData.digitalHumans.rows[2].preview },
+  { id: 'custom_wave_01', name: '欢迎挥手形象', type: '自定义动作', preview: moduleData.digitalHumans.rows[1].preview },
+  { id: 'custom_like_02', name: '点赞互动形象', type: '自定义动作', preview: moduleData.digitalHumans.rows[0].preview },
+  { id: 'custom_goodbye_03', name: '结束致意形象', type: '自定义动作', preview: moduleData.digitalHumans.rows[3].preview },
+]
 const linkedDigitalHumanType = computed(() => {
   if (route.query.digitalHumanType) return route.query.digitalHumanType
   return moduleData.digitalHumans.rows.find((human) => human.extra === currentAgent.value.name)?.type || ''
@@ -91,6 +102,7 @@ const visibleAnswerTools = computed(() => (
     ? answerTools
     : answerTools.filter((tool) => tool.label !== '动作')
 ))
+const filteredAnswerActionAssets = computed(() => answerActionAssets.filter((action) => action.type === activeActionAssetType.value))
 const filteredQnaRows = computed(() => {
   const query = qnaSearch.value.trim().toLowerCase()
   return qnaRows.value.filter((row) => !query || `${row.question} ${row.answer}`.toLowerCase().includes(query))
@@ -129,6 +141,7 @@ function openQnaModal(row = null) {
 }
 
 function closeQnaModal() {
+  closeActionPicker()
   qnaModalOpen.value = false
   editingQnaIndex.value = -1
   qnaQuestion.value = ''
@@ -158,10 +171,30 @@ function removeSimilarQuestion(index) {
 
 function insertAnswerToken(label) {
   if (label === '动作') {
-    qnaAnswer.value = '![action](xiaoran_action03)术天公司拥有自研技术壁垒、软硬件一体化交付能力与丰富行业落地经验。![action](xiaoran_00)以有温度的多模态数字人智能体。'
+    openActionPicker()
     return
   }
   qnaAnswer.value += `${qnaAnswer.value ? '\n' : ''}[${label}]`
+}
+
+function openActionPicker() {
+  activeActionAssetType.value = '通用动作'
+  selectedAnswerActionId.value = ''
+  actionPickerOpen.value = true
+}
+
+function closeActionPicker() {
+  actionPickerOpen.value = false
+  selectedAnswerActionId.value = ''
+}
+
+function confirmAnswerAction() {
+  const action = answerActionAssets.find((item) => item.id === selectedAnswerActionId.value)
+  if (!action) return
+  const token = `![action](${action.id})`
+  qnaAnswer.value = qnaAnswer.value ? `${token}${qnaAnswer.value}` : token
+  closeActionPicker()
+  showPageToast(`已插入动作“${action.name}”`)
 }
 
 function deleteQna(row) {
@@ -431,6 +464,38 @@ function saveSettings() {
             </div>
             <div class="modal-actions"><button type="button" class="secondary-button" @click="closeQnaModal">取消</button><button type="submit" class="primary-button">确认</button></div>
           </form>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="fade">
+      <div v-if="actionPickerOpen" class="modal-backdrop action-picker-backdrop" @click.self="closeActionPicker">
+        <div class="modal-card answer-action-picker-modal" role="dialog" aria-modal="true" aria-label="选择可用动作">
+          <button class="modal-close" aria-label="关闭动作选择" @click="closeActionPicker"><AppIcon name="close" /></button>
+          <div class="modal-icon"><AppIcon name="sparkles" :size="24" /></div>
+          <h3>选择可用动作</h3>
+          <p>选择需要插入回答内容的动作，确认后将自动生成对应动作标签。</p>
+
+          <div class="answer-action-type-tabs" role="tablist" aria-label="动作资产类型">
+            <button v-for="type in ['通用动作', '自定义动作']" :key="type" type="button" role="tab" :aria-selected="activeActionAssetType === type" :class="{ active: activeActionAssetType === type }" @click="activeActionAssetType = type">
+              {{ type }}
+              <span>{{ answerActionAssets.filter((action) => action.type === type).length }}</span>
+            </button>
+          </div>
+
+          <div class="answer-action-card-grid">
+            <button v-for="action in filteredAnswerActionAssets" :key="action.id" type="button" class="answer-action-card" :class="{ selected: selectedAnswerActionId === action.id }" @click="selectedAnswerActionId = action.id">
+              <span class="answer-action-preview"><img :src="action.preview" :alt="`${action.name}动作预览图`" /><span><AppIcon name="check" :size="14" /></span></span>
+              <span class="answer-action-card-copy"><strong>{{ action.name }}</strong><small>{{ action.id }}</small></span>
+              <em>{{ action.type }}</em>
+            </button>
+          </div>
+
+          <div class="answer-action-picker-hint"><AppIcon name="info" :size="14" />动作标签只能插入句首，使用动作标签时回答内容至少需要有两句话。</div>
+          <div class="modal-actions">
+            <button type="button" class="secondary-button" @click="closeActionPicker">取消</button>
+            <button type="button" class="primary-button" :disabled="!selectedAnswerActionId" @click="confirmAnswerAction">确认插入动作</button>
+          </div>
         </div>
       </div>
     </Transition>

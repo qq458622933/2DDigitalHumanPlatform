@@ -18,6 +18,8 @@ const toastMessage = ref('')
 const projectName = ref('')
 const digitalHumanType = ref('')
 const localAvatarType = ref('播报形象')
+const trainingParentAvatarId = ref('')
+const trainingCommonActionId = ref('')
 const digitalHumanDescription = ref('')
 const agentDescription = ref('')
 const associatedAgent = ref('')
@@ -75,6 +77,7 @@ const activeAssetCategory = ref('形象管理')
 const activeBackgroundType = ref('全部类型')
 const associatedAssetId = ref('')
 const assetActionId = ref('')
+const assetActionType = ref('自定义动作')
 const assetAvatarId = ref('')
 const assetApiKey = ref('')
 const showAssetApiKey = ref(false)
@@ -101,11 +104,33 @@ const assetBackgroundPreviewUrl = ref('')
 const assetBackgroundMaterialFile = ref(null)
 const assetBackgroundMaterialInput = ref(null)
 const assetBackgroundWebUrl = ref('')
+const avatarAssetActionRelations = ref({})
+const assetActionRelationsDraft = ref([])
+const editingAssetRelationId = ref('')
+const assetRelationActionId = ref('')
+const avatarActionCandidates = [
+  { name: '标准讲解形象', id: 'AVT-ACT-001' },
+  { name: '欢迎挥手形象', id: 'AVT-ACT-002' },
+  { name: '右手指引形象', id: 'AVT-ACT-003' },
+  { name: '双手展示形象', id: 'AVT-ACT-004' },
+  { name: '点赞互动形象', id: 'AVT-ACT-005' },
+  { name: '结束致意形象', id: 'AVT-ACT-006' },
+  { name: '自然站姿形象', id: 'AVT-ACT-007' },
+  { name: '左手指引形象', id: 'AVT-ACT-008' },
+]
 const assetCategories = computed(() => activeAssetEdition.value === '2D本地版'
   ? ['形象管理', '动作管理', '音色管理', '预设背景管理']
   : ['形象管理', '预设背景管理'])
 const assetAvatarOptions = computed(() => assetRows.value.filter((row) => row.edition === activeAssetEdition.value && row.category === '形象管理'))
 const assetVoiceOptions = computed(() => assetRows.value.filter((row) => row.category === '音色管理'))
+const trainingBroadcastAvatarOptions = computed(() => assetRows.value.filter((row) => row.edition === '2D本地版'
+  && row.category === '形象管理'
+  && row.avatarType !== '动作形象'))
+const commonActionAssetOptions = computed(() => assetRows.value.filter((row) => row.edition === '2D本地版'
+  && row.category === '动作管理'
+  && row.actionAssetType === '通用动作'))
+const assetLinkedActionRelations = computed(() => assetActionRelationsDraft.value.filter((relation) => relation.linked))
+const assetAvailableActionRelations = computed(() => assetActionRelationsDraft.value.filter((relation) => !relation.linked))
 const editingDigitalHumanCode = ref('')
 const editingAgentId = ref('')
 const actionModalOpen = ref(false)
@@ -177,6 +202,12 @@ watch([keyword, activeDigitalHumanType], () => {
   digitalHumanPage.value = 1
 })
 
+watch([digitalHumanType, localAvatarType], ([type, avatarType]) => {
+  if (type === 'local' && avatarType === '动作形象') return
+  trainingParentAvatarId.value = ''
+  trainingCommonActionId.value = ''
+})
+
 watch(digitalHumanTotalPages, (totalPages) => {
   if (digitalHumanPage.value > totalPages) digitalHumanPage.value = totalPages
 })
@@ -197,6 +228,14 @@ watch(() => route.path, () => {
   closeBenefitModal()
   closeResourceModal()
 })
+
+watch(() => route.fullPath, () => {
+  if (route.meta.moduleKey !== 'training' || route.query.createTraining !== '1') return
+  digitalHumanType.value = route.query.type === 'local' ? 'local' : 'online'
+  localAvatarType.value = route.query.avatarType === 'action' ? '动作形象' : '播报形象'
+  modalOpen.value = true
+  router.replace({ name: 'training' })
+}, { immediate: true })
 
 function openModal() {
   if (route.meta.moduleKey === 'knowledge') {
@@ -249,6 +288,8 @@ function closeModal() {
   projectName.value = ''
   digitalHumanType.value = ''
   localAvatarType.value = '播报形象'
+  trainingParentAvatarId.value = ''
+  trainingCommonActionId.value = ''
   digitalHumanDescription.value = ''
   agentDescription.value = ''
   associatedAgent.value = ''
@@ -262,6 +303,7 @@ function closeModal() {
   trainingPreviewUrl.value = ''
   associatedAssetId.value = ''
   assetActionId.value = ''
+  assetActionType.value = '自定义动作'
   assetAvatarId.value = ''
   assetApiKey.value = ''
   showAssetApiKey.value = false
@@ -287,6 +329,9 @@ function closeModal() {
   assetBackgroundPreviewUrl.value = ''
   assetBackgroundMaterialFile.value = null
   assetBackgroundWebUrl.value = ''
+  assetActionRelationsDraft.value = []
+  editingAssetRelationId.value = ''
+  assetRelationActionId.value = ''
   if (videoInput.value) videoInput.value.value = ''
   if (trainingPreviewInput.value) trainingPreviewInput.value.value = ''
   if (assetAudioInput.value) assetAudioInput.value.value = ''
@@ -346,6 +391,48 @@ function clearAssetBackgroundMaterial() {
   if (assetBackgroundMaterialInput.value) assetBackgroundMaterialInput.value.value = ''
 }
 
+function createDefaultAvatarActionRelations() {
+  const genericActions = [
+    { name: '标准讲解', id: 'COMMON-001' },
+    { name: '欢迎挥手', id: 'COMMON-002' },
+    { name: '右手指引', id: 'COMMON-003' },
+    { name: '双手展示', id: 'COMMON-004' },
+    { name: '点赞互动', id: 'COMMON-005' },
+    { name: '结束致意', id: 'COMMON-006' },
+  ]
+  return genericActions.map((genericAction, index) => ({
+    genericAction: genericAction.name,
+    genericActionId: genericAction.id,
+    actionName: avatarActionCandidates[index].name,
+    actionId: avatarActionCandidates[index].id,
+    linked: index < 3,
+  }))
+}
+
+function setAssetRelationLinked(relation, linked) {
+  relation.linked = linked
+  if (!linked && editingAssetRelationId.value === relation.genericActionId) cancelAssetRelationEdit()
+}
+
+function startAssetRelationEdit(relation) {
+  editingAssetRelationId.value = relation.genericActionId
+  assetRelationActionId.value = relation.actionId
+}
+
+function cancelAssetRelationEdit() {
+  editingAssetRelationId.value = ''
+  assetRelationActionId.value = ''
+}
+
+function saveAssetRelationEdit(relation) {
+  const candidate = avatarActionCandidates.find((item) => item.id === assetRelationActionId.value)
+  if (!candidate) return
+  relation.actionName = candidate.name
+  relation.actionId = candidate.id
+  relation.linked = true
+  cancelAssetRelationEdit()
+}
+
 function openAssetEditor(row) {
   editingAssetId.value = row.subtitle
   activeAssetEdition.value = row.edition
@@ -353,6 +440,7 @@ function openAssetEditor(row) {
   projectName.value = row.name
   associatedAssetId.value = row.linkedAvatarId || (row.category === '动作管理' ? assetAvatarOptions.value[0]?.subtitle || '' : '')
   assetActionId.value = row.actionId || (row.category === '动作管理' ? row.subtitle : '')
+  assetActionType.value = row.actionAssetType || '自定义动作'
   assetAvatarId.value = row.avatarId || (row.category === '形象管理' ? row.subtitle : '')
   assetApiKey.value = row.apiKey || ''
   showAssetApiKey.value = false
@@ -368,6 +456,15 @@ function openAssetEditor(row) {
   assetBackgroundType.value = row.backgroundType || '透明背景'
   assetBackgroundDescription.value = row.description || (row.category === '预设背景管理' ? `${row.name}背景资产` : '')
   assetBackgroundWebUrl.value = row.backgroundWebUrl || ''
+  if (row.category === '形象管理' && row.edition === '2D本地版') {
+    const savedRelations = avatarAssetActionRelations.value[row.subtitle] || createDefaultAvatarActionRelations()
+    if (!avatarAssetActionRelations.value[row.subtitle]) avatarAssetActionRelations.value[row.subtitle] = savedRelations.map((relation) => ({ ...relation }))
+    assetActionRelationsDraft.value = savedRelations.map((relation) => ({ ...relation }))
+  } else {
+    assetActionRelationsDraft.value = []
+  }
+  editingAssetRelationId.value = ''
+  assetRelationActionId.value = ''
   modalOpen.value = true
 }
 
@@ -568,6 +665,8 @@ function submitCreate() {
       subtitle: `ID: AVT-${Date.now().toString().slice(-8)}`,
       type: digitalHumanType.value === 'online' ? '2D在线版' : '2D本地版',
       avatarType: digitalHumanType.value === 'local' ? localAvatarType.value : '播报形象',
+      parentAvatarId: digitalHumanType.value === 'local' && localAvatarType.value === '动作形象' ? trainingParentAvatarId.value : '',
+      commonActionId: digitalHumanType.value === 'local' && localAvatarType.value === '动作形象' ? trainingCommonActionId.value : '',
       date: createdAt,
       progress: 0,
       status: '待训练',
@@ -593,7 +692,9 @@ function submitCreate() {
     const uploadedFileInfo = uploadedFile
       ? `${uploadedFile.name} · ${(uploadedFile.size / 1024 / 1024).toFixed(1)} MB${activeAssetCategory.value === '形象管理' && assetPreviewFile.value ? ` · 预览：${assetPreviewFile.value.name}` : ''}`
       : existingFileInfo || '新建资产'
-    const assetFileInfo = activeAssetCategory.value === '预设背景管理'
+    const assetFileInfo = activeAssetCategory.value === '动作管理' && assetActionType.value === '通用动作'
+      ? `通用动作 · ${assetActionId.value.trim()}`
+      : activeAssetCategory.value === '预设背景管理'
       ? assetBackgroundType.value === '透明背景'
         ? '透明背景 · 无需背景素材'
         : assetBackgroundType.value === '网页背景'
@@ -607,11 +708,12 @@ function submitCreate() {
       edition: activeAssetEdition.value,
       category: activeAssetCategory.value,
       type: activeAssetCategory.value,
-      extra: activeAssetCategory.value === '动作管理' && linkedAvatar
+      extra: activeAssetCategory.value === '动作管理' && assetActionType.value === '自定义动作' && linkedAvatar
         ? `${assetFileInfo} · 关联：${linkedAvatar.name}`
         : assetFileInfo,
-      linkedAvatarId: linkedAvatar?.subtitle || '',
+      linkedAvatarId: activeAssetCategory.value === '动作管理' && assetActionType.value === '自定义动作' ? linkedAvatar?.subtitle || '' : '',
       actionId: activeAssetCategory.value === '动作管理' ? assetActionId.value.trim() : '',
+      actionAssetType: activeAssetCategory.value === '动作管理' ? assetActionType.value : '',
       avatarId: activeAssetCategory.value === '形象管理' ? assetAvatarId.value.trim() : '',
       apiKey: activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D在线版' ? assetApiKey.value.trim() : '',
       gender: activeAssetCategory.value === '形象管理'
@@ -654,6 +756,9 @@ function submitCreate() {
     }
     if (editingIndex >= 0) assetRows.value[editingIndex] = updatedAsset
     else assetRows.value.unshift(updatedAsset)
+    if (editingIndex >= 0 && activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D本地版') {
+      avatarAssetActionRelations.value[updatedAsset.subtitle] = assetActionRelationsDraft.value.map((relation) => ({ ...relation }))
+    }
     closeModal()
     showToast(editingIndex >= 0 ? '资产修改成功' : '资产创建成功')
     return
@@ -1357,7 +1462,7 @@ function statusClass(status) {
 
     <Transition name="fade">
       <div v-if="modalOpen" class="modal-backdrop" @click.self="closeModal">
-        <div class="modal-card" :class="{ 'training-modal': route.meta.moduleKey === 'training', 'digital-human-modal': route.meta.moduleKey === 'digitalHumans', 'avatar-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理', 'voice-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理', 'background-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' }">
+        <div class="modal-card" :class="{ 'training-modal': route.meta.moduleKey === 'training', 'digital-human-modal': route.meta.moduleKey === 'digitalHumans', 'avatar-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理', 'avatar-asset-action-edit-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' && activeAssetEdition === '2D本地版' && editingAssetId, 'voice-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理', 'background-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' }">
           <button class="modal-close" aria-label="关闭" @click="closeModal"><AppIcon name="close" /></button>
           <div class="modal-icon"><AppIcon :name="current.icon" :size="25" /></div>
           <h3>{{ editingAgentId ? '编辑智能体' : editingAssetId ? `编辑${activeAssetCategory.replace('管理', '')}资产` : route.meta.moduleKey === 'digitalHumans' && editingDigitalHumanCode ? '设置数字人' : primaryActionLabel }}</h3>
@@ -1397,6 +1502,31 @@ function statusClass(status) {
                   </label>
                 </div>
               </fieldset>
+
+              <div v-if="digitalHumanType === 'local' && localAvatarType === '动作形象'" class="training-action-association">
+                <div class="training-action-association-heading">
+                  <AppIcon name="workflow" :size="17" />
+                  <div><strong>动作形象关联</strong><span>将本次训练的动作形象归属到指定播报形象</span></div>
+                </div>
+                <div class="training-action-association-grid">
+                  <div>
+                    <label for="training-parent-avatar">所属播报形象</label>
+                    <select id="training-parent-avatar" v-model="trainingParentAvatarId" required>
+                      <option value="" disabled>请选择播报形象</option>
+                      <option v-for="avatar in trainingBroadcastAvatarOptions" :key="avatar.subtitle" :value="avatar.subtitle">{{ avatar.name }}（{{ avatar.subtitle }}）</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="training-common-action">关联的通用动作形象 <small>选填</small></label>
+                    <select id="training-common-action" v-model="trainingCommonActionId">
+                      <option value="">暂不关联通用动作形象</option>
+                      <option v-for="action in commonActionAssetOptions" :key="action.subtitle" :value="action.subtitle">{{ action.name }}（{{ action.actionId || action.subtitle }}）</option>
+                    </select>
+                  </div>
+                </div>
+                <small v-if="!trainingBroadcastAvatarOptions.length" class="form-error">暂无可用播报形象，请先在资产管理中上传 2D 本地版播报形象资产</small>
+                <small v-else-if="!commonActionAssetOptions.length" class="field-hint">当前暂无通用动作形象，可暂不关联或先前往资产管理上传</small>
+              </div>
 
               <label>视频素材</label>
               <label class="video-upload" :class="{ 'has-file': videoFile }">
@@ -1543,24 +1673,98 @@ function statusClass(status) {
                 <button v-if="assetPreviewFile" type="button" class="upload-remove" aria-label="移除形象预览图" @click.prevent="clearAssetPreview"><AppIcon name="close" :size="16" /></button>
                 <span v-else class="upload-action">选择图片</span>
               </label>
+
+              <section v-if="editingAssetId && activeAssetEdition === '2D本地版'" class="asset-avatar-action-editor">
+                <div class="asset-avatar-action-editor-heading">
+                  <div><strong>动作形象关联管理</strong><span>管理当前形象的动作资源以及通用动作映射关系</span></div>
+                  <em>{{ assetLinkedActionRelations.length }} 个已关联</em>
+                </div>
+
+                <div class="asset-avatar-action-groups">
+                  <section>
+                    <div class="asset-action-group-title"><strong>已关联的动作形象</strong><span>{{ assetLinkedActionRelations.length }}</span></div>
+                    <div class="asset-action-relation-cards">
+                      <article v-for="relation in assetLinkedActionRelations" :key="`linked-${relation.genericActionId}`">
+                        <span><AppIcon name="user" :size="14" /></span>
+                        <div><strong>{{ relation.actionName }}</strong><small>{{ relation.actionId }}</small></div>
+                        <button type="button" @click="setAssetRelationLinked(relation, false)">取消关联</button>
+                      </article>
+                    </div>
+                    <small v-if="!assetLinkedActionRelations.length" class="field-hint">暂无已关联动作形象</small>
+                  </section>
+                  <section>
+                    <div class="asset-action-group-title"><strong>可关联的动作形象</strong><span>{{ assetAvailableActionRelations.length }}</span></div>
+                    <div class="asset-action-relation-cards available">
+                      <article v-for="relation in assetAvailableActionRelations" :key="`available-${relation.genericActionId}`">
+                        <span><AppIcon name="user" :size="14" /></span>
+                        <div><strong>{{ relation.actionName }}</strong><small>{{ relation.actionId }}</small></div>
+                        <button type="button" @click="setAssetRelationLinked(relation, true)">关联</button>
+                      </article>
+                    </div>
+                    <small v-if="!assetAvailableActionRelations.length" class="field-hint">暂无其他可关联动作形象</small>
+                  </section>
+                </div>
+
+                <section class="generic-action-mapping asset-generic-action-mapping" aria-label="形象资产通用动作关联关系">
+                  <div class="generic-action-mapping-heading">
+                    <div><strong>通用动作关联关系</strong><span>可修改每个通用动作当前关联的动作形象</span></div>
+                    <em>共 {{ assetActionRelationsDraft.length }} 组</em>
+                  </div>
+                  <div class="generic-action-mapping-list">
+                    <div v-for="relation in assetActionRelationsDraft" :key="relation.genericActionId" :class="{ selected: relation.linked, editing: editingAssetRelationId === relation.genericActionId }">
+                      <span class="generic-action-node"><AppIcon name="workflow" :size="14" /><span><strong>{{ relation.genericAction }}</strong><small>{{ relation.genericActionId }}</small></span></span>
+                      <span class="mapping-arrow"><AppIcon name="chevron" :size="14" /></span>
+                      <select v-if="editingAssetRelationId === relation.genericActionId" v-model="assetRelationActionId" class="mapping-target-select" aria-label="选择关联动作形象">
+                        <option v-for="candidate in avatarActionCandidates" :key="candidate.id" :value="candidate.id">{{ candidate.name }}（{{ candidate.id }}）</option>
+                      </select>
+                      <span v-else class="trained-action-node"><AppIcon name="user" :size="14" /><span><strong>{{ relation.actionName }}</strong><small>{{ relation.actionId }}</small></span></span>
+                      <div v-if="editingAssetRelationId === relation.genericActionId" class="mapping-edit-actions">
+                        <button type="button" class="save" @click="saveAssetRelationEdit(relation)"><AppIcon name="check" :size="12" />保存</button>
+                        <button type="button" @click="cancelAssetRelationEdit">取消</button>
+                      </div>
+                      <div v-else class="mapping-row-actions">
+                        <em :class="relation.linked ? 'linked' : 'available'">{{ relation.linked ? '已关联' : '可关联' }}</em>
+                        <button type="button" @click="startAssetRelationEdit(relation)"><AppIcon name="edit" :size="12" />修改</button>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </section>
             </template>
             <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理'">
+              <fieldset class="type-fieldset action-asset-type-fieldset">
+                <legend>动作资产类型</legend>
+                <div class="type-options">
+                  <label class="type-option" :class="{ selected: assetActionType === '通用动作' }">
+                    <input v-model="assetActionType" type="radio" name="asset-action-type" value="通用动作" required />
+                    <span class="type-radio"></span>
+                    <span class="type-copy"><strong>通用动作</strong><small>仅维护动作名称和动作 ID</small></span>
+                  </label>
+                  <label class="type-option" :class="{ selected: assetActionType === '自定义动作' }">
+                    <input v-model="assetActionType" type="radio" name="asset-action-type" value="自定义动作" required />
+                    <span class="type-radio"></span>
+                    <span class="type-copy"><strong>自定义动作</strong><small>上传动作视频并关联形象资产</small></span>
+                  </label>
+                </div>
+              </fieldset>
               <label for="asset-action-id">动作ID</label>
               <input id="asset-action-id" v-model.trim="assetActionId" required placeholder="请输入动作ID，例如 xiaoran_action03" />
-              <label>动作视频</label>
-              <label class="video-upload" :class="{ 'has-file': videoFile }">
-                <input ref="videoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" :required="!editingAssetId" @change="handleVideoChange" />
-                <span class="upload-icon"><AppIcon :name="videoFile ? 'check' : 'video'" :size="22" /></span>
-                <span class="upload-copy"><strong>{{ videoFile ? videoFile.name : '点击上传动作视频' }}</strong><small>{{ videoFile ? `${(videoFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 MP4、MOV、WEBM、AVI 视频格式' }}</small></span>
-                <button v-if="videoFile" type="button" class="upload-remove" aria-label="移除动作视频" @click.prevent="clearVideo"><AppIcon name="close" :size="16" /></button>
-                <span v-else class="upload-action">选择视频</span>
-              </label>
-              <label for="asset-linked-avatar">关联形象资产</label>
-              <select id="asset-linked-avatar" v-model="associatedAssetId" class="asset-link-select" required>
-                <option value="" disabled>请选择需要关联的形象资产</option>
-                <option v-for="avatar in assetAvatarOptions" :key="avatar.subtitle" :value="avatar.subtitle">{{ avatar.name }}（{{ avatar.subtitle }}）</option>
-              </select>
-              <small v-if="!assetAvatarOptions.length" class="form-error">当前版本暂无可关联的形象资产，请先上传形象资产</small>
+              <template v-if="assetActionType === '自定义动作'">
+                <label>动作视频</label>
+                <label class="video-upload" :class="{ 'has-file': videoFile }">
+                  <input ref="videoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" :required="!editingAssetId" @change="handleVideoChange" />
+                  <span class="upload-icon"><AppIcon :name="videoFile ? 'check' : 'video'" :size="22" /></span>
+                  <span class="upload-copy"><strong>{{ videoFile ? videoFile.name : '点击上传动作视频' }}</strong><small>{{ videoFile ? `${(videoFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 MP4、MOV、WEBM、AVI 视频格式' }}</small></span>
+                  <button v-if="videoFile" type="button" class="upload-remove" aria-label="移除动作视频" @click.prevent="clearVideo"><AppIcon name="close" :size="16" /></button>
+                  <span v-else class="upload-action">选择视频</span>
+                </label>
+                <label for="asset-linked-avatar">关联形象资产</label>
+                <select id="asset-linked-avatar" v-model="associatedAssetId" class="asset-link-select" required>
+                  <option value="" disabled>请选择需要关联的形象资产</option>
+                  <option v-for="avatar in assetAvatarOptions" :key="avatar.subtitle" :value="avatar.subtitle">{{ avatar.name }}（{{ avatar.subtitle }}）</option>
+                </select>
+                <small v-if="!assetAvatarOptions.length" class="form-error">当前版本暂无可关联的形象资产，请先上传形象资产</small>
+              </template>
             </template>
             <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理'">
               <div class="voice-asset-form-grid">
