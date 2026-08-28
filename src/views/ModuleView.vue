@@ -104,6 +104,8 @@ const assetAvatarDescription = ref('')
 const assetPreviewFile = ref(null)
 const assetPreviewInput = ref(null)
 const assetPreviewUrl = ref('')
+const assetSilentVideoFile = ref(null)
+const assetSilentVideoInput = ref(null)
 const assetVoiceId = ref('')
 const assetVoiceGender = ref('女声')
 const assetVoiceType = ref('标准音色')
@@ -174,6 +176,8 @@ const selectedTrainingEditionMode = computed(() => selectedTraining.value?.editi
 const selectedTrainingRequiresWalkingConfig = computed(() => selectedTrainingEditionMode.value === 'local'
   && ['动作形象', '走动动作形象'].includes(selectedTraining.value?.avatarType)
   && selectedTraining.value?.actionType === '走动动作')
+const selectedTrainingRequiresSilentVideo = computed(() => selectedTrainingEditionMode.value === 'local'
+  && selectedTraining.value?.avatarType === '播报形象')
 const assetLinkedActionRelations = computed(() => assetActionRelationsDraft.value.filter((relation) => relation.linked))
 const assetAvailableActionRelations = computed(() => assetActionRelationsDraft.value.filter((relation) => !relation.linked))
 const editingDigitalHumanCode = ref('')
@@ -195,6 +199,8 @@ const completionWalkingTravelPeriod = ref(1000)
 const completionWalkingTravelAmplitude = ref(1)
 const completionWalkingStopDuration = ref(500)
 const completionWalkingStopSpeed = ref(0)
+const completionSilentVideoFile = ref(null)
+const completionSilentVideoInput = ref(null)
 const completionPreviewFile = ref(null)
 const completionPreviewInput = ref(null)
 const replacementVideo = ref(null)
@@ -409,6 +415,7 @@ function closeModal() {
   assetPreviewFile.value = null
   if (assetPreviewUrl.value) URL.revokeObjectURL(assetPreviewUrl.value)
   assetPreviewUrl.value = ''
+  assetSilentVideoFile.value = null
   assetVoiceId.value = ''
   assetVoiceGender.value = '女声'
   assetVoiceType.value = '标准音色'
@@ -432,6 +439,7 @@ function closeModal() {
   if (trainingPreviewInput.value) trainingPreviewInput.value.value = ''
   if (assetAudioInput.value) assetAudioInput.value.value = ''
   if (assetPreviewInput.value) assetPreviewInput.value.value = ''
+  if (assetSilentVideoInput.value) assetSilentVideoInput.value.value = ''
   if (assetBackgroundPreviewInput.value) assetBackgroundPreviewInput.value.value = ''
   if (assetBackgroundMaterialInput.value) assetBackgroundMaterialInput.value.value = ''
 }
@@ -448,6 +456,15 @@ function clearAssetPreview() {
   assetPreviewFile.value = null
   assetPreviewUrl.value = ''
   if (assetPreviewInput.value) assetPreviewInput.value.value = ''
+}
+
+function handleAssetSilentVideo(event) {
+  assetSilentVideoFile.value = event.target.files?.[0] || null
+}
+
+function clearAssetSilentVideo() {
+  assetSilentVideoFile.value = null
+  if (assetSilentVideoInput.value) assetSilentVideoInput.value.value = ''
 }
 
 function handleAssetAudioChange(event) {
@@ -578,6 +595,7 @@ function openAssetEditor(row) {
 function deleteAsset(row) {
   if (!window.confirm(`确定删除资产“${row.name}”吗？删除后无法恢复。`)) return
   if (typeof row.preview === 'string' && row.preview.startsWith('blob:')) URL.revokeObjectURL(row.preview)
+  if (typeof row.silentVideoUrl === 'string' && row.silentVideoUrl.startsWith('blob:')) URL.revokeObjectURL(row.silentVideoUrl)
   if (typeof row.backgroundPreview === 'string' && row.backgroundPreview.startsWith('blob:')) URL.revokeObjectURL(row.backgroundPreview)
   assetRows.value = assetRows.value.filter((item) => item.subtitle !== row.subtitle)
   moduleData.assets.rows = moduleData.assets.rows.filter((item) => item.subtitle !== row.subtitle)
@@ -818,6 +836,9 @@ function submitCreate() {
         ? `网页背景 · ${assetBackgroundWebUrl.value.trim()}`
         : `${assetBackgroundType.value} · ${uploadedFileInfo}`
       : uploadedFileInfo
+    if (assetSilentVideoFile.value && typeof existingAsset?.silentVideoUrl === 'string' && existingAsset.silentVideoUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(existingAsset.silentVideoUrl)
+    }
     const updatedAsset = {
       ...existingAsset,
       name: activeAssetCategory.value === '动作管理' && assetActionType.value === '通用走动动作'
@@ -873,6 +894,12 @@ function submitCreate() {
         ? URL.createObjectURL(assetPreviewFile.value)
         : existingAsset?.preview || '',
       previewName: ['形象管理', '动作管理'].includes(activeAssetCategory.value) ? assetPreviewFile.value?.name || existingAsset?.previewName || '' : '',
+      silentVideoName: activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D本地版'
+        ? assetSilentVideoFile.value?.name || existingAsset?.silentVideoName || ''
+        : '',
+      silentVideoUrl: activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D本地版'
+        ? assetSilentVideoFile.value ? URL.createObjectURL(assetSilentVideoFile.value) : existingAsset?.silentVideoUrl || ''
+        : '',
       voiceId: activeAssetCategory.value === '音色管理' ? assetVoiceId.value.trim() : '',
       voiceType: activeAssetCategory.value === '音色管理' ? assetVoiceType.value : '',
       pitch: activeAssetCategory.value === '音色管理' ? assetVoicePitch.value : null,
@@ -1214,6 +1241,7 @@ function openActionModal(type, row) {
   completionProjectId.value = ''
   completionAvatarId.value = ''
   resetCompletionWalkingConfig(row.walkingConfig)
+  completionSilentVideoFile.value = null
   completionPreviewFile.value = null
   replacementVideo.value = null
   actionModalOpen.value = true
@@ -1225,9 +1253,11 @@ function closeActionModal() {
   selectedTraining.value = null
   failureReason.value = ''
   replacementVideo.value = null
+  completionSilentVideoFile.value = null
   completionPreviewFile.value = null
   resetCompletionWalkingConfig()
   if (replacementVideoInput.value) replacementVideoInput.value.value = ''
+  if (completionSilentVideoInput.value) completionSilentVideoInput.value.value = ''
   if (completionPreviewInput.value) completionPreviewInput.value.value = ''
 }
 
@@ -1238,6 +1268,15 @@ function handleReplacementVideo(event) {
 function clearReplacementVideo() {
   replacementVideo.value = null
   if (replacementVideoInput.value) replacementVideoInput.value.value = ''
+}
+
+function handleCompletionSilentVideo(event) {
+  completionSilentVideoFile.value = event.target.files?.[0] || null
+}
+
+function clearCompletionSilentVideo() {
+  completionSilentVideoFile.value = null
+  if (completionSilentVideoInput.value) completionSilentVideoInput.value.value = ''
 }
 
 function handleCompletionPreview(event) {
@@ -1273,6 +1312,10 @@ function submitTrainingAction() {
       row.projectId = completionProjectId.value.trim()
     } else {
       row.avatarId = completionAvatarId.value.trim()
+      if (selectedTrainingRequiresSilentVideo.value) {
+        row.silentVideoName = completionSilentVideoFile.value?.name || ''
+        row.silentVideoUrl = URL.createObjectURL(completionSilentVideoFile.value)
+      }
       if (selectedTrainingRequiresWalkingConfig.value) {
         row.walkingConfig = {
           targetX: Number(completionWalkingTargetX.value),
@@ -1920,6 +1963,19 @@ function getEditionMode(editionName) {
                 <button v-if="videoFile" type="button" class="upload-remove" aria-label="移除形象视频" @click.prevent="clearVideo"><AppIcon name="close" :size="16" /></button>
                 <span v-else class="upload-action">选择视频</span>
               </label>
+              <template v-if="activeAssetEdition === '2D本地版'">
+                <label>首页静默形象视频</label>
+                <label class="video-upload asset-silent-video-upload" :class="{ 'has-file': assetSilentVideoFile }">
+                  <input ref="assetSilentVideoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" :required="!editingAssetId" @change="handleAssetSilentVideo" />
+                  <span class="upload-icon"><AppIcon :name="assetSilentVideoFile ? 'check' : 'video'" :size="22" /></span>
+                  <span class="upload-copy">
+                    <strong>{{ assetSilentVideoFile ? assetSilentVideoFile.name : '点击上传首页静默形象视频' }}</strong>
+                    <small>{{ assetSilentVideoFile ? `${(assetSilentVideoFile.size / 1024 / 1024).toFixed(1)} MB` : editingAssetId ? '不重新上传将保留原视频' : '支持 MP4、MOV、WEBM、AVI 视频格式' }}</small>
+                  </span>
+                  <button v-if="assetSilentVideoFile" type="button" class="upload-remove" aria-label="移除首页静默形象视频" @click.prevent="clearAssetSilentVideo"><AppIcon name="close" :size="16" /></button>
+                  <span v-else class="upload-action">选择视频</span>
+                </label>
+              </template>
               <label>形象预览图</label>
               <label class="video-upload asset-preview-upload" :class="{ 'has-file': assetPreviewFile }">
                 <input ref="assetPreviewInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" :required="!editingAssetId" @change="handleAssetPreviewChange" />
@@ -2318,6 +2374,22 @@ function getEditionMode(editionName) {
               <template v-else>
                 <label for="completion-avatar-id">形象 ID</label>
                 <input id="completion-avatar-id" v-model.trim="completionAvatarId" required placeholder="请输入本地版形象 ID" />
+              </template>
+
+              <template v-if="selectedTrainingRequiresSilentVideo">
+                <label>首页静默形象视频</label>
+                <label class="video-upload completion-silent-video-upload" :class="{ 'has-file': completionSilentVideoFile }">
+                  <input ref="completionSilentVideoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" required @change="handleCompletionSilentVideo" />
+                  <span class="upload-icon"><AppIcon :name="completionSilentVideoFile ? 'check' : 'video'" :size="22" /></span>
+                  <span class="upload-copy">
+                    <strong>{{ completionSilentVideoFile ? completionSilentVideoFile.name : '点击上传首页静默形象视频' }}</strong>
+                    <small>{{ completionSilentVideoFile ? `${(completionSilentVideoFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 MP4、MOV、WEBM、AVI 视频格式' }}</small>
+                  </span>
+                  <button v-if="completionSilentVideoFile" type="button" class="upload-remove" aria-label="移除首页静默形象视频" @click.prevent="clearCompletionSilentVideo">
+                    <AppIcon name="close" :size="16" />
+                  </button>
+                  <span v-else class="upload-action">选择视频</span>
+                </label>
               </template>
 
               <section v-if="selectedTrainingRequiresWalkingConfig" class="walking-action-config completion-walking-config" aria-label="训练完成走动参数配置">
