@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import { moduleData } from '../config/modules'
+import { editionTypeMap } from '../config/digitalHumanVersions'
 
 const route = useRoute()
 const router = useRouter()
@@ -85,24 +86,42 @@ const answerTools = [
   { label: '前置视频', icon: 'video', tone: 'cyan' },
   { label: '停顿', icon: 'clock', tone: 'yellow' },
 ]
-const answerActionAssets = [
+const answerActionTypes = ['通用动作', '自定义动作', '通用走动动作', '走动动作']
+const defaultAnswerActionAssets = [
   { id: 'xiaoran_00', name: '标准讲解', type: '通用动作', preview: moduleData.digitalHumans.rows[0].preview },
   { id: 'xiaoran_action03', name: '右手指引', type: '通用动作', preview: moduleData.digitalHumans.rows[1].preview },
   { id: 'xiaoran_action04', name: '双手展示', type: '通用动作', preview: moduleData.digitalHumans.rows[2].preview },
   { id: 'custom_wave_01', name: '欢迎挥手形象', type: '自定义动作', preview: moduleData.digitalHumans.rows[1].preview },
   { id: 'custom_like_02', name: '点赞互动形象', type: '自定义动作', preview: moduleData.digitalHumans.rows[0].preview },
   { id: 'custom_goodbye_03', name: '结束致意形象', type: '自定义动作', preview: moduleData.digitalHumans.rows[3].preview },
+  { id: 'walk_common_forward', name: '标准前行', type: '通用走动动作', preview: moduleData.digitalHumans.rows[0].preview },
+  { id: 'walk_common_guide', name: '引导走位', type: '通用走动动作', preview: moduleData.digitalHumans.rows[2].preview },
+  { id: 'walk_exhibition_01', name: '展厅引导走动', type: '走动动作', preview: moduleData.digitalHumans.rows[0].preview },
+  { id: 'walk_stage_02', name: '舞台横向走动', type: '走动动作', preview: moduleData.digitalHumans.rows[1].preview },
 ]
+const answerActionAssets = computed(() => {
+  const managedActions = moduleData.assets.rows
+    .filter((row) => row.category === '动作管理' && answerActionTypes.includes(row.actionAssetType) && row.actionId)
+    .map((row, index) => ({
+      id: row.actionId,
+      name: row.name,
+      type: row.actionAssetType,
+      preview: row.preview || moduleData.digitalHumans.rows[index % moduleData.digitalHumans.rows.length].preview,
+    }))
+  return [...new Map([...defaultAnswerActionAssets, ...managedActions].map((action) => [action.id, action])).values()]
+})
 const linkedDigitalHumanType = computed(() => {
   if (route.query.digitalHumanType) return route.query.digitalHumanType
-  return moduleData.digitalHumans.rows.find((human) => human.extra === currentAgent.value.name)?.type || ''
+  const human = moduleData.digitalHumans.rows.find((item) => item.extra === currentAgent.value.name)
+  if (!human) return ''
+  return human.editionMode === 'local' || editionTypeMap.value[human.type] === '2D本地版' ? '2D本地版' : '2D在线版'
 })
 const visibleAnswerTools = computed(() => (
   linkedDigitalHumanType.value === '2D本地版'
     ? answerTools
     : answerTools.filter((tool) => tool.label !== '动作')
 ))
-const filteredAnswerActionAssets = computed(() => answerActionAssets.filter((action) => action.type === activeActionAssetType.value))
+const filteredAnswerActionAssets = computed(() => answerActionAssets.value.filter((action) => action.type === activeActionAssetType.value))
 const filteredQnaRows = computed(() => {
   const query = qnaSearch.value.trim().toLowerCase()
   return qnaRows.value.filter((row) => !query || `${row.question} ${row.answer}`.toLowerCase().includes(query))
@@ -188,8 +207,13 @@ function closeActionPicker() {
   selectedAnswerActionId.value = ''
 }
 
+function selectAnswerActionType(type) {
+  activeActionAssetType.value = type
+  selectedAnswerActionId.value = ''
+}
+
 function confirmAnswerAction() {
-  const action = answerActionAssets.find((item) => item.id === selectedAnswerActionId.value)
+  const action = answerActionAssets.value.find((item) => item.id === selectedAnswerActionId.value)
   if (!action) return
   const token = `![action](${action.id})`
   qnaAnswer.value = qnaAnswer.value ? `${token}${qnaAnswer.value}` : token
@@ -477,7 +501,7 @@ function saveSettings() {
           <p>选择需要插入回答内容的动作，确认后将自动生成对应动作标签。</p>
 
           <div class="answer-action-type-tabs" role="tablist" aria-label="动作资产类型">
-            <button v-for="type in ['通用动作', '自定义动作']" :key="type" type="button" role="tab" :aria-selected="activeActionAssetType === type" :class="{ active: activeActionAssetType === type }" @click="activeActionAssetType = type">
+            <button v-for="type in answerActionTypes" :key="type" type="button" role="tab" :aria-selected="activeActionAssetType === type" :class="{ active: activeActionAssetType === type }" @click="selectAnswerActionType(type)">
               {{ type }}
               <span>{{ answerActionAssets.filter((action) => action.type === type).length }}</span>
             </button>

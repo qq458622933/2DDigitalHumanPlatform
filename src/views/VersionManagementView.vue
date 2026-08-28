@@ -1,9 +1,22 @@
 <script setup>
 import { computed, ref } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
+import { digitalHumanEditions, editionTypeMap } from '../config/digitalHumanVersions'
 
-const digitalHumanEditions = ref(['2D在线版', '2D本地版', '数字人定制版'])
-const activeDigitalHumanEdition = ref('2D在线版')
+const activeDigitalHumanEdition = ref(digitalHumanEditions.value[0] || '')
+const editionTenantMap = ref({
+  '2D在线版': { mode: 'all', tenantIds: [] },
+  '2D本地版': { mode: 'all', tenantIds: [] },
+  '数字人定制版': { mode: 'all', tenantIds: [] },
+})
+const tenantOptions = [
+  { id: 'TENANT-001', name: '术天科技', account: 'tenant_shutian' },
+  { id: 'TENANT-002', name: '智慧展厅', account: 'tenant_exhibition' },
+  { id: 'TENANT-003', name: '融媒体中心', account: 'tenant_media' },
+  { id: 'TENANT-004', name: '数字政务', account: 'tenant_government' },
+  { id: 'TENANT-005', name: '企业培训', account: 'tenant_training' },
+  { id: 'TENANT-006', name: '智能客服', account: 'tenant_service' },
+]
 
 function createSoftwareList(versions = {}) {
   return [
@@ -30,7 +43,12 @@ const updateRecords = ref([
 
 const activeSoftware = ref('all')
 const addEditionOpen = ref(false)
+const editingEditionOriginalName = ref('')
 const newEditionName = ref('')
+const newEditionType = ref('2D在线版')
+const newEditionTenantMode = ref('all')
+const newEditionTenantIds = ref([])
+const newEditionTenantKeyword = ref('')
 const publishOpen = ref(false)
 const publishSoftwareKey = ref('')
 const publishVersion = ref('')
@@ -46,6 +64,12 @@ const toastMessage = ref('')
 
 const uploadingSoftware = computed(() => softwareList.value.find((item) => item.key === uploadingSoftwareKey.value))
 const uploadedSoftwareCount = computed(() => softwareList.value.filter((item) => item.version !== '待上传').length)
+const isEditingEdition = computed(() => Boolean(editingEditionOriginalName.value))
+const filteredTenantOptions = computed(() => {
+  const keyword = newEditionTenantKeyword.value.trim().toLowerCase()
+  if (!keyword) return tenantOptions
+  return tenantOptions.filter((tenant) => [tenant.name, tenant.account, tenant.id].some((value) => value.toLowerCase().includes(keyword)))
+})
 const publishVersionOptions = computed(() => [...new Set(updateRecords.value
   .filter((record) => record.edition === activeDigitalHumanEdition.value && record.softwareKey === publishSoftwareKey.value)
   .map((record) => record.version))])
@@ -82,28 +106,104 @@ function clearUploadFile() {
 }
 
 function openAddEdition() {
+  editingEditionOriginalName.value = ''
   newEditionName.value = ''
+  newEditionType.value = '2D在线版'
+  newEditionTenantMode.value = 'all'
+  newEditionTenantIds.value = []
+  newEditionTenantKeyword.value = ''
   addEditionOpen.value = true
+}
+
+function openEditEdition() {
+  const editionName = activeDigitalHumanEdition.value
+  const tenantScope = editionTenantMap.value[editionName] || { mode: 'all', tenantIds: [] }
+  editingEditionOriginalName.value = editionName
+  newEditionName.value = editionName
+  newEditionType.value = editionTypeMap.value[editionName] || '2D在线版'
+  newEditionTenantMode.value = tenantScope.mode || 'all'
+  newEditionTenantIds.value = [...(tenantScope.tenantIds || [])]
+  newEditionTenantKeyword.value = ''
+  addEditionOpen.value = true
+}
+
+function deleteActiveEdition() {
+  const editionName = activeDigitalHumanEdition.value
+  if (!editionName) return
+  if (digitalHumanEditions.value.length <= 1) {
+    showToast('至少需要保留一个数字人版本')
+    return
+  }
+  if (!window.confirm(`确定删除数字人版本“${editionName}”吗？该版本下的软件包和更新记录也将同步删除。`)) return
+
+  const editionIndex = digitalHumanEditions.value.indexOf(editionName)
+  digitalHumanEditions.value = digitalHumanEditions.value.filter((edition) => edition !== editionName)
+  delete editionSoftwareMap.value[editionName]
+  delete editionTypeMap.value[editionName]
+  delete editionTenantMap.value[editionName]
+  updateRecords.value = updateRecords.value.filter((record) => record.edition !== editionName)
+
+  const nextEditionIndex = Math.min(Math.max(editionIndex, 0), digitalHumanEditions.value.length - 1)
+  activeDigitalHumanEdition.value = digitalHumanEditions.value[nextEditionIndex]
+  activeSoftware.value = 'all'
+  showToast(`已删除数字人版本“${editionName}”`)
 }
 
 function closeAddEdition() {
   addEditionOpen.value = false
+  editingEditionOriginalName.value = ''
   newEditionName.value = ''
+  newEditionType.value = '2D在线版'
+  newEditionTenantMode.value = 'all'
+  newEditionTenantIds.value = []
+  newEditionTenantKeyword.value = ''
 }
 
 function submitAddEdition() {
   const name = newEditionName.value.trim()
+  const originalName = editingEditionOriginalName.value
   if (!name) return
-  if (digitalHumanEditions.value.includes(name)) {
+  if (digitalHumanEditions.value.some((edition) => edition === name && edition !== originalName)) {
     showToast('该数字人版本已存在')
     return
   }
+  if (newEditionTenantMode.value === 'selected' && !newEditionTenantIds.value.length) {
+    showToast('请至少选择一个下发租户')
+    return
+  }
+  const tenantScope = {
+    mode: newEditionTenantMode.value,
+    tenantIds: newEditionTenantMode.value === 'selected' ? [...newEditionTenantIds.value] : [],
+  }
+  if (originalName) {
+    const editionIndex = digitalHumanEditions.value.indexOf(originalName)
+    const currentSoftwareList = editionSoftwareMap.value[originalName] || createSoftwareList()
+    if (editionIndex >= 0) digitalHumanEditions.value[editionIndex] = name
+    if (name !== originalName) {
+      delete editionSoftwareMap.value[originalName]
+      delete editionTypeMap.value[originalName]
+      delete editionTenantMap.value[originalName]
+      updateRecords.value.forEach((record) => {
+        if (record.edition === originalName) record.edition = name
+      })
+    }
+    editionTypeMap.value[name] = newEditionType.value
+    editionTenantMap.value[name] = tenantScope
+    editionSoftwareMap.value[name] = currentSoftwareList.map((software) => ({ ...software, digitalHumanType: newEditionType.value, tenantScope }))
+    activeDigitalHumanEdition.value = name
+    activeSoftware.value = 'all'
+    closeAddEdition()
+    showToast(`已更新“${name}”的版本信息`)
+    return
+  }
   digitalHumanEditions.value.push(name)
-  editionSoftwareMap.value[name] = createSoftwareList()
+  editionTypeMap.value[name] = newEditionType.value
+  editionTenantMap.value[name] = tenantScope
+  editionSoftwareMap.value[name] = createSoftwareList().map((software) => ({ ...software, digitalHumanType: newEditionType.value, tenantScope }))
   activeDigitalHumanEdition.value = name
   activeSoftware.value = 'all'
   closeAddEdition()
-  showToast(`已新增“${name}”，请上传三个程序的软件包`)
+  showToast(`已新增“${name}”（${editionTypeMap.value[name]}），${tenantScope.mode === 'all' ? '下发所有租户' : `下发 ${tenantScope.tenantIds.length} 个指定租户`}`)
 }
 
 function openPublish() {
@@ -175,6 +275,16 @@ function submitUpload() {
   showToast(`${software.name} ${version} 上传成功`)
 }
 
+function downloadRecord(record) {
+  showToast(`开始下载 ${record.file}`)
+}
+
+function deleteRecord(record) {
+  if (!window.confirm(`确定删除“${record.software} ${record.version}”的更新记录吗？`)) return
+  updateRecords.value = updateRecords.value.filter((item) => item.id !== record.id)
+  showToast('更新记录已删除')
+}
+
 function showToast(message) {
   toastMessage.value = message
   toastVisible.value = true
@@ -198,6 +308,8 @@ function showToast(message) {
               <AppIcon name="chevron-down" :size="14" />
             </label>
             <button type="button" class="add-digital-human-edition-button" @click="openAddEdition"><AppIcon name="plus" :size="15" />添加数字人版本</button>
+            <button type="button" class="edit-digital-human-edition-button" @click="openEditEdition"><AppIcon name="edit" :size="15" />编辑数字人版本</button>
+            <button type="button" class="delete-digital-human-edition-button" @click="deleteActiveEdition"><AppIcon name="trash" :size="15" />删除数字人版本</button>
           </div>
         </div>
         <p>管理和部署系统各模块的软件版本更新</p>
@@ -244,6 +356,10 @@ function showToast(message) {
             <div class="version-record-title"><span>{{ record.version }}</span><strong>{{ record.software }}</strong><em v-if="record.published">已发布</em></div>
             <p>{{ record.note }}</p>
             <div class="version-record-meta"><span><AppIcon name="file" :size="13" />{{ record.file }}</span><span>{{ record.size }}</span><span><AppIcon name="user" :size="13" />{{ record.operator }}</span></div>
+            <div class="version-record-actions">
+              <button type="button" @click="downloadRecord(record)"><AppIcon name="download" :size="13" />下载</button>
+              <button type="button" class="danger" @click="deleteRecord(record)"><AppIcon name="trash" :size="13" />删除</button>
+            </div>
           </div>
         </article>
         <div v-if="!filteredRecords.length" class="empty-state"><AppIcon name="layers" :size="30" /><strong>暂无更新记录</strong></div>
@@ -278,15 +394,66 @@ function showToast(message) {
 
     <Transition name="fade">
       <div v-if="addEditionOpen" class="modal-backdrop" @click.self="closeAddEdition">
-        <div class="modal-card add-edition-modal" role="dialog" aria-modal="true" aria-label="添加数字人版本">
+        <div class="modal-card add-edition-modal" role="dialog" aria-modal="true" :aria-label="isEditingEdition ? '编辑数字人版本' : '添加数字人版本'">
           <button class="modal-close" aria-label="关闭" @click="closeAddEdition"><AppIcon name="close" /></button>
-          <div class="modal-icon"><AppIcon name="layers" :size="25" /></div>
-          <h3>添加数字人版本</h3>
-          <p>新增后将自动切换到该版本，三个程序的软件包均为待上传状态。</p>
+          <div class="modal-icon"><AppIcon :name="isEditingEdition ? 'edit' : 'layers'" :size="25" /></div>
+          <h3>{{ isEditingEdition ? '编辑数字人版本' : '添加数字人版本' }}</h3>
+          <p>{{ isEditingEdition ? '修改当前版本的名称、数字人类型和租户下发范围。' : '新增后将自动切换到该版本，三个程序的软件包均为待上传状态。' }}</p>
           <form @submit.prevent="submitAddEdition">
             <label for="new-digital-human-edition">版本名称</label>
             <input id="new-digital-human-edition" v-model.trim="newEditionName" maxlength="30" required autofocus placeholder="请输入版本名称，例如 行业专用版" />
-            <div class="modal-actions"><button type="button" class="secondary-button" @click="closeAddEdition">取消</button><button type="submit" class="primary-button">确认添加</button></div>
+            <fieldset class="type-fieldset edition-type-fieldset">
+              <legend>数字人类型</legend>
+              <div class="type-options">
+                <label class="type-option" :class="{ selected: newEditionType === '2D在线版' }">
+                  <input v-model="newEditionType" type="radio" name="new-edition-type" value="2D在线版" required />
+                  <span class="type-radio"></span>
+                  <span class="type-copy"><strong>2D在线版</strong><small>云端运行与在线服务</small></span>
+                </label>
+                <label class="type-option" :class="{ selected: newEditionType === '2D本地版' }">
+                  <input v-model="newEditionType" type="radio" name="new-edition-type" value="2D本地版" required />
+                  <span class="type-radio"></span>
+                  <span class="type-copy"><strong>2D本地版</strong><small>本地部署与离线运行</small></span>
+                </label>
+              </div>
+            </fieldset>
+            <fieldset class="tenant-delivery-fieldset">
+              <legend>下发租户</legend>
+              <div class="tenant-delivery-modes">
+                <label :class="{ selected: newEditionTenantMode === 'all' }">
+                  <input v-model="newEditionTenantMode" type="radio" name="new-edition-tenant-mode" value="all" />
+                  <span class="tenant-mode-icon"><AppIcon name="user" :size="17" /></span>
+                  <span><strong>所有租户</strong><small>该版本下发至平台全部租户</small></span>
+                </label>
+                <label :class="{ selected: newEditionTenantMode === 'selected' }">
+                  <input v-model="newEditionTenantMode" type="radio" name="new-edition-tenant-mode" value="selected" />
+                  <span class="tenant-mode-icon"><AppIcon name="check" :size="17" /></span>
+                  <span><strong>指定租户</strong><small>选择一个或多个租户下发</small></span>
+                </label>
+              </div>
+              <Transition name="fade">
+                <div v-if="newEditionTenantMode === 'selected'" class="tenant-multi-select-panel">
+                  <div class="tenant-selector-heading">
+                    <strong>选择指定租户</strong>
+                    <label class="tenant-search-box">
+                      <AppIcon name="search" :size="14" />
+                      <input v-model="newEditionTenantKeyword" type="search" aria-label="搜索指定租户" placeholder="搜索租户名称、账号或ID" />
+                    </label>
+                    <span>已选 {{ newEditionTenantIds.length }} 个</span>
+                  </div>
+                  <div class="tenant-checkbox-grid">
+                    <label v-for="tenant in filteredTenantOptions" :key="tenant.id" :class="{ selected: newEditionTenantIds.includes(tenant.id) }">
+                      <input v-model="newEditionTenantIds" type="checkbox" :value="tenant.id" />
+                      <span class="tenant-checkbox-mark"><AppIcon name="check" :size="11" /></span>
+                      <span><strong>{{ tenant.name }}</strong><small>{{ tenant.account }}</small></span>
+                    </label>
+                  </div>
+                  <div v-if="!filteredTenantOptions.length" class="tenant-search-empty"><AppIcon name="search" :size="18" /><span>没有找到匹配的租户</span></div>
+                  <small class="tenant-selector-hint">支持多选，确认添加后版本仅下发至已选择的租户。</small>
+                </div>
+              </Transition>
+            </fieldset>
+            <div class="modal-actions"><button type="button" class="secondary-button" @click="closeAddEdition">取消</button><button type="submit" class="primary-button">{{ isEditingEdition ? '保存修改' : '确认添加' }}</button></div>
           </form>
         </div>
       </div>

@@ -5,6 +5,7 @@ import AppIcon from '../components/AppIcon.vue'
 import InteractionConfigPanel from '../components/InteractionConfigPanel.vue'
 import HotwordConfigPanel from '../components/HotwordConfigPanel.vue'
 import { moduleData } from '../config/modules'
+import { editionTypeMap } from '../config/digitalHumanVersions'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +14,8 @@ const currentHuman = computed(() => (
   moduleData.digitalHumans.rows.find((row) => row.appCode === route.params.appCode)
   || moduleData.digitalHumans.rows[0]
 ))
+const currentHumanMode = computed(() => currentHuman.value.editionMode
+  || (editionTypeMap.value[currentHuman.value.type] === '2D本地版' ? 'local' : 'online'))
 
 const activeSection = ref('形象设置')
 const activeSettingsTab = ref('角色')
@@ -80,7 +83,7 @@ function handleSectionClick(item) {
     router.push({
       name: 'digitalHumanAgentDetail',
       params: { digitalHumanCode: currentHuman.value.appCode, agentId: relatedAgent.subtitle },
-      query: { digitalHumanType: currentHuman.value.type },
+      query: { digitalHumanType: currentHumanMode.value === 'local' ? '2D本地版' : '2D在线版' },
     })
     return
   }
@@ -219,7 +222,7 @@ function removeBackground(item) {
           </div>
         </section>
 
-        <section v-if="currentHuman.type === '2D本地版'" class="motion-preview-panel">
+        <section v-if="currentHumanMode === 'local'" class="motion-preview-panel">
           <div class="motion-panel-heading">
             <div><strong>动作预览</strong><span>选择动作查看形象效果</span></div>
             <span>{{ motions.length }} 个动作</span>
@@ -239,8 +242,8 @@ function removeBackground(item) {
       </main>
 
       <aside v-if="activeSection === '形象设置'" class="detail-settings-panel">
-        <div class="settings-tabs" :class="{ 'two-tabs': currentHuman.type === '2D在线版' }">
-          <button v-for="tab in (currentHuman.type === '2D在线版' ? ['角色', '输出设置'] : ['角色', '音色', '输出设置'])" :key="tab" :class="{ active: activeSettingsTab === tab }" @click="activeSettingsTab = tab">
+        <div class="settings-tabs" :class="{ 'two-tabs': currentHumanMode === 'online' }">
+          <button v-for="tab in (currentHumanMode === 'online' ? ['角色', '输出设置'] : ['角色', '音色', '输出设置'])" :key="tab" :class="{ active: activeSettingsTab === tab }" @click="activeSettingsTab = tab">
             {{ tab }}
           </button>
         </div>
@@ -351,7 +354,7 @@ function removeBackground(item) {
               <span><AppIcon name="database" :size="21" /></span>
               <div><small>内存</small><strong>32 GB</strong><p>建议预留充足运行内存</p></div>
             </article>
-            <article v-if="currentHuman.type === '2D本地版'">
+            <article v-if="currentHumanMode === 'local'">
               <span><AppIcon name="video" :size="21" /></span>
               <div><small>显卡</small><strong>NVIDIA RTX 4070 / 5070</strong><p>本地渲染需要独立显卡支持</p></div>
             </article>

@@ -3,6 +3,7 @@ import { computed, inject, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import { moduleData } from '../config/modules'
+import { digitalHumanEditions, editionTypeMap } from '../config/digitalHumanVersions'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,14 +17,19 @@ const modalOpen = ref(false)
 const toastVisible = ref(false)
 const toastMessage = ref('')
 const projectName = ref('')
-const digitalHumanType = ref('')
+const digitalHumanEdition = ref('')
+const trainingEdition = ref('')
 const localAvatarType = ref('播报形象')
+const trainingGender = ref('')
+const trainingVoiceId = ref('')
 const trainingParentAvatarId = ref('')
+const trainingActionType = ref('')
 const trainingCommonActionId = ref('')
 const digitalHumanDescription = ref('')
 const agentDescription = ref('')
 const associatedAgent = ref('')
 const videoResolution = ref('')
+const digitalHumanServerAddress = ref('')
 const videoFile = ref(null)
 const videoInput = ref(null)
 const trainingPreviewFile = ref(null)
@@ -76,8 +82,19 @@ const activeAssetEdition = ref('2D本地版')
 const activeAssetCategory = ref('形象管理')
 const activeBackgroundType = ref('全部类型')
 const associatedAssetId = ref('')
+const associatedCommonActionAssetId = ref('')
 const assetActionId = ref('')
 const assetActionType = ref('自定义动作')
+const walkingTargetX = ref(0)
+const walkingTargetY = ref(0)
+const walkingStartDuration = ref(500)
+const walkingStartSpeed = ref(1)
+const walkingTravelSpeed = ref(1)
+const walkingTravelPhase = ref(0)
+const walkingTravelPeriod = ref(1000)
+const walkingTravelAmplitude = ref(1)
+const walkingStopDuration = ref(500)
+const walkingStopSpeed = ref(0)
 const assetAvatarId = ref('')
 const assetApiKey = ref('')
 const showAssetApiKey = ref(false)
@@ -123,12 +140,40 @@ const assetCategories = computed(() => activeAssetEdition.value === '2D本地版
   : ['形象管理', '预设背景管理'])
 const assetAvatarOptions = computed(() => assetRows.value.filter((row) => row.edition === activeAssetEdition.value && row.category === '形象管理'))
 const assetVoiceOptions = computed(() => assetRows.value.filter((row) => row.category === '音色管理'))
+const trainingVoiceOptions = computed(() => assetRows.value.filter((row) => row.edition === '2D本地版'
+  && row.category === '音色管理'))
 const trainingBroadcastAvatarOptions = computed(() => assetRows.value.filter((row) => row.edition === '2D本地版'
   && row.category === '形象管理'
   && row.avatarType !== '动作形象'))
-const commonActionAssetOptions = computed(() => assetRows.value.filter((row) => row.edition === '2D本地版'
-  && row.category === '动作管理'
-  && row.actionAssetType === '通用动作'))
+const trainingCommonActionOptions = computed(() => {
+  const expectedType = trainingActionType.value === '普通动作'
+    ? '通用动作'
+    : trainingActionType.value === '走动动作'
+      ? '通用走动动作'
+      : ''
+  if (!expectedType) return []
+  return assetRows.value.filter((row) => getEditionMode(row.edition) === 'local'
+    && row.category === '动作管理'
+    && row.actionAssetType === expectedType)
+})
+const selectedTrainingCommonAction = computed(() => trainingCommonActionOptions.value.find((row) => row.subtitle === trainingCommonActionId.value))
+const commonActionLinkOptions = computed(() => {
+  const expectedType = assetActionType.value === '自定义动作'
+    ? '通用动作'
+    : assetActionType.value === '走动动作'
+      ? '通用走动动作'
+      : ''
+  if (!expectedType) return []
+  return assetRows.value.filter((row) => row.edition === activeAssetEdition.value
+    && row.category === '动作管理'
+    && row.actionAssetType === expectedType)
+})
+const digitalHumanEditionMode = computed(() => getEditionMode(digitalHumanEdition.value))
+const trainingEditionMode = computed(() => getEditionMode(trainingEdition.value))
+const selectedTrainingEditionMode = computed(() => selectedTraining.value?.editionMode || getEditionMode(selectedTraining.value?.type))
+const selectedTrainingRequiresWalkingConfig = computed(() => selectedTrainingEditionMode.value === 'local'
+  && ['动作形象', '走动动作形象'].includes(selectedTraining.value?.avatarType)
+  && selectedTraining.value?.actionType === '走动动作')
 const assetLinkedActionRelations = computed(() => assetActionRelationsDraft.value.filter((relation) => relation.linked))
 const assetAvailableActionRelations = computed(() => assetActionRelationsDraft.value.filter((relation) => !relation.linked))
 const editingDigitalHumanCode = ref('')
@@ -140,6 +185,16 @@ const failureReason = ref('')
 const completionApiKey = ref('')
 const completionProjectId = ref('')
 const completionAvatarId = ref('')
+const completionWalkingTargetX = ref(0)
+const completionWalkingTargetY = ref(0)
+const completionWalkingStartDuration = ref(500)
+const completionWalkingStartSpeed = ref(1)
+const completionWalkingTravelSpeed = ref(1)
+const completionWalkingTravelPhase = ref(0)
+const completionWalkingTravelPeriod = ref(1000)
+const completionWalkingTravelAmplitude = ref(1)
+const completionWalkingStopDuration = ref(500)
+const completionWalkingStopSpeed = ref(0)
 const completionPreviewFile = ref(null)
 const completionPreviewInput = ref(null)
 const replacementVideo = ref(null)
@@ -202,10 +257,27 @@ watch([keyword, activeDigitalHumanType], () => {
   digitalHumanPage.value = 1
 })
 
-watch([digitalHumanType, localAvatarType], ([type, avatarType]) => {
-  if (type === 'local' && avatarType === '动作形象') return
-  trainingParentAvatarId.value = ''
+watch([trainingEditionMode, localAvatarType], ([type, avatarType]) => {
+  if (!(type === 'local' && avatarType === '动作形象')) {
+    trainingParentAvatarId.value = ''
+    trainingActionType.value = ''
+    trainingCommonActionId.value = ''
+  }
+  if (!(type === 'local' && avatarType === '播报形象')) trainingVoiceId.value = ''
+  if (type !== 'local') trainingGender.value = ''
+})
+
+watch(trainingActionType, () => {
   trainingCommonActionId.value = ''
+})
+
+watch(digitalHumanEditionMode, (type) => {
+  if (route.meta.moduleKey !== 'digitalHumans') return
+  if (type === 'local') {
+    if (!digitalHumanServerAddress.value) digitalHumanServerAddress.value = '127.0.0.1'
+  } else {
+    digitalHumanServerAddress.value = ''
+  }
 })
 
 watch(digitalHumanTotalPages, (totalPages) => {
@@ -231,7 +303,8 @@ watch(() => route.path, () => {
 
 watch(() => route.fullPath, () => {
   if (route.meta.moduleKey !== 'training' || route.query.createTraining !== '1') return
-  digitalHumanType.value = route.query.type === 'local' ? 'local' : 'online'
+  const requestedMode = route.query.type === 'local' ? 'local' : 'online'
+  trainingEdition.value = digitalHumanEditions.value.find((edition) => getEditionMode(edition) === requestedMode) || digitalHumanEditions.value[0] || ''
   localAvatarType.value = route.query.avatarType === 'action' ? '动作形象' : '播报形象'
   modalOpen.value = true
   router.replace({ name: 'training' })
@@ -259,10 +332,17 @@ function openModal() {
   editingDigitalHumanCode.value = ''
   editingAgentId.value = ''
   editingAssetId.value = ''
-  if (route.meta.moduleKey === 'training') localAvatarType.value = '播报形象'
+  if (route.meta.moduleKey === 'training') {
+    trainingEdition.value = ''
+    localAvatarType.value = '播报形象'
+    trainingGender.value = ''
+  }
   if (route.meta.moduleKey === 'digitalHumans') {
-    digitalHumanType.value = 'online'
+    digitalHumanEdition.value = digitalHumanEditions.value.includes('2D在线版')
+      ? '2D在线版'
+      : digitalHumanEditions.value.find((edition) => getEditionMode(edition) === 'online') || digitalHumanEditions.value[0] || ''
     videoResolution.value = '16:9'
+    digitalHumanServerAddress.value = ''
   }
   modalOpen.value = true
 }
@@ -286,14 +366,19 @@ function handlePrimaryActionClick() {
 function closeModal() {
   modalOpen.value = false
   projectName.value = ''
-  digitalHumanType.value = ''
+  digitalHumanEdition.value = ''
+  trainingEdition.value = ''
   localAvatarType.value = '播报形象'
+  trainingGender.value = ''
+  trainingVoiceId.value = ''
   trainingParentAvatarId.value = ''
+  trainingActionType.value = ''
   trainingCommonActionId.value = ''
   digitalHumanDescription.value = ''
   agentDescription.value = ''
   associatedAgent.value = ''
   videoResolution.value = ''
+  digitalHumanServerAddress.value = ''
   editingDigitalHumanCode.value = ''
   editingAgentId.value = ''
   editingAssetId.value = ''
@@ -302,8 +387,19 @@ function closeModal() {
   if (trainingPreviewUrl.value) URL.revokeObjectURL(trainingPreviewUrl.value)
   trainingPreviewUrl.value = ''
   associatedAssetId.value = ''
+  associatedCommonActionAssetId.value = ''
   assetActionId.value = ''
   assetActionType.value = '自定义动作'
+  walkingTargetX.value = 0
+  walkingTargetY.value = 0
+  walkingStartDuration.value = 500
+  walkingStartSpeed.value = 1
+  walkingTravelSpeed.value = 1
+  walkingTravelPhase.value = 0
+  walkingTravelPeriod.value = 1000
+  walkingTravelAmplitude.value = 1
+  walkingStopDuration.value = 500
+  walkingStopSpeed.value = 0
   assetAvatarId.value = ''
   assetApiKey.value = ''
   showAssetApiKey.value = false
@@ -439,8 +535,19 @@ function openAssetEditor(row) {
   activeAssetCategory.value = row.category
   projectName.value = row.name
   associatedAssetId.value = row.linkedAvatarId || (row.category === '动作管理' ? assetAvatarOptions.value[0]?.subtitle || '' : '')
+  associatedCommonActionAssetId.value = row.linkedCommonActionAssetId || ''
   assetActionId.value = row.actionId || (row.category === '动作管理' ? row.subtitle : '')
   assetActionType.value = row.actionAssetType || '自定义动作'
+  walkingTargetX.value = row.walkingConfig?.targetX ?? 0
+  walkingTargetY.value = row.walkingConfig?.targetY ?? 0
+  walkingStartDuration.value = row.walkingConfig?.startDuration ?? 500
+  walkingStartSpeed.value = row.walkingConfig?.startSpeed ?? 1
+  walkingTravelSpeed.value = row.walkingConfig?.travelSpeed ?? 1
+  walkingTravelPhase.value = row.walkingConfig?.travelPhase ?? 0
+  walkingTravelPeriod.value = row.walkingConfig?.travelPeriod ?? 1000
+  walkingTravelAmplitude.value = row.walkingConfig?.travelAmplitude ?? 1
+  walkingStopDuration.value = row.walkingConfig?.stopDuration ?? 500
+  walkingStopSpeed.value = row.walkingConfig?.stopSpeed ?? 0
   assetAvatarId.value = row.avatarId || (row.category === '形象管理' ? row.subtitle : '')
   assetApiKey.value = row.apiKey || ''
   showAssetApiKey.value = false
@@ -473,6 +580,7 @@ function deleteAsset(row) {
   if (typeof row.preview === 'string' && row.preview.startsWith('blob:')) URL.revokeObjectURL(row.preview)
   if (typeof row.backgroundPreview === 'string' && row.backgroundPreview.startsWith('blob:')) URL.revokeObjectURL(row.backgroundPreview)
   assetRows.value = assetRows.value.filter((item) => item.subtitle !== row.subtitle)
+  moduleData.assets.rows = moduleData.assets.rows.filter((item) => item.subtitle !== row.subtitle)
   showToast('资产已删除')
 }
 
@@ -663,17 +771,25 @@ function submitCreate() {
     trainingRows.value.unshift({
       name: projectName.value,
       subtitle: `ID: AVT-${Date.now().toString().slice(-8)}`,
-      type: digitalHumanType.value === 'online' ? '2D在线版' : '2D本地版',
-      avatarType: digitalHumanType.value === 'local' ? localAvatarType.value : '播报形象',
-      parentAvatarId: digitalHumanType.value === 'local' && localAvatarType.value === '动作形象' ? trainingParentAvatarId.value : '',
-      commonActionId: digitalHumanType.value === 'local' && localAvatarType.value === '动作形象' ? trainingCommonActionId.value : '',
+      type: trainingEdition.value,
+      editionMode: trainingEditionMode.value,
+      avatarType: trainingEditionMode.value === 'local' && localAvatarType.value === '动作形象'
+        ? trainingActionType.value === '走动动作' ? '走动动作形象' : '动作形象'
+        : '播报形象',
+      gender: trainingEditionMode.value === 'local' ? trainingGender.value : '',
+      voiceId: trainingEditionMode.value === 'local' && localAvatarType.value === '播报形象' ? trainingVoiceId.value : '',
+      parentAvatarId: trainingEditionMode.value === 'local' && localAvatarType.value === '动作形象' ? trainingParentAvatarId.value : '',
+      actionType: trainingEditionMode.value === 'local' && localAvatarType.value === '动作形象' ? trainingActionType.value : '',
+      commonActionAssetId: trainingEditionMode.value === 'local' && localAvatarType.value === '动作形象' ? trainingCommonActionId.value : '',
+      commonActionId: trainingEditionMode.value === 'local' && localAvatarType.value === '动作形象' ? selectedTrainingCommonAction.value?.actionId || '' : '',
+      commonActionName: trainingEditionMode.value === 'local' && localAvatarType.value === '动作形象' ? selectedTrainingCommonAction.value?.name || '' : '',
       date: createdAt,
       progress: 0,
       status: '待训练',
       videoName: videoFile.value?.name || '',
       previewName: trainingPreviewFile.value?.name || '',
       preview: URL.createObjectURL(trainingPreviewFile.value),
-      tone: digitalHumanType.value === 'online' ? 'violet' : 'cyan',
+      tone: trainingEditionMode.value === 'online' ? 'violet' : 'cyan',
     })
     closeModal()
     showToast('训练任务创建成功，等待开始训练')
@@ -683,17 +799,18 @@ function submitCreate() {
     const editingIndex = assetRows.value.findIndex((row) => row.subtitle === editingAssetId.value)
     const existingAsset = editingIndex >= 0 ? assetRows.value[editingIndex] : null
     const linkedAvatar = assetAvatarOptions.value.find((row) => row.subtitle === associatedAssetId.value)
+    const linkedCommonAction = commonActionLinkOptions.value.find((row) => row.subtitle === associatedCommonActionAssetId.value)
     const uploadedFile = activeAssetCategory.value === '音色管理'
       ? assetAudioFile.value
       : activeAssetCategory.value === '预设背景管理'
         ? assetBackgroundMaterialFile.value
         : videoFile.value
-    const existingFileInfo = existingAsset?.extra?.split(' · 关联：')[0] || ''
+    const existingFileInfo = existingAsset?.extra?.split(' · 关联')[0] || ''
     const uploadedFileInfo = uploadedFile
-      ? `${uploadedFile.name} · ${(uploadedFile.size / 1024 / 1024).toFixed(1)} MB${activeAssetCategory.value === '形象管理' && assetPreviewFile.value ? ` · 预览：${assetPreviewFile.value.name}` : ''}`
+      ? `${uploadedFile.name} · ${(uploadedFile.size / 1024 / 1024).toFixed(1)} MB${['形象管理', '动作管理'].includes(activeAssetCategory.value) && assetPreviewFile.value ? ` · 预览：${assetPreviewFile.value.name}` : ''}`
       : existingFileInfo || '新建资产'
-    const assetFileInfo = activeAssetCategory.value === '动作管理' && assetActionType.value === '通用动作'
-      ? `通用动作 · ${assetActionId.value.trim()}`
+    const assetFileInfo = activeAssetCategory.value === '动作管理' && ['通用动作', '通用走动动作'].includes(assetActionType.value)
+      ? `${assetActionType.value} · ${assetActionId.value.trim()}`
       : activeAssetCategory.value === '预设背景管理'
       ? assetBackgroundType.value === '透明背景'
         ? '透明背景 · 无需背景素材'
@@ -703,17 +820,40 @@ function submitCreate() {
       : uploadedFileInfo
     const updatedAsset = {
       ...existingAsset,
-      name: projectName.value,
+      name: activeAssetCategory.value === '动作管理' && assetActionType.value === '通用走动动作'
+        ? assetActionId.value.trim()
+        : projectName.value,
       subtitle: existingAsset?.subtitle || `AST-${Date.now().toString().slice(-6)}`,
       edition: activeAssetEdition.value,
       category: activeAssetCategory.value,
       type: activeAssetCategory.value,
-      extra: activeAssetCategory.value === '动作管理' && assetActionType.value === '自定义动作' && linkedAvatar
-        ? `${assetFileInfo} · 关联：${linkedAvatar.name}`
+      extra: activeAssetCategory.value === '动作管理' && ['自定义动作', '走动动作'].includes(assetActionType.value)
+        ? [
+            assetFileInfo,
+            linkedAvatar ? `关联形象：${linkedAvatar.name}` : '',
+            linkedCommonAction ? `关联${assetActionType.value === '走动动作' ? '通用走动动作' : '通用动作'}：${linkedCommonAction.name}` : '',
+          ].filter(Boolean).join(' · ')
         : assetFileInfo,
-      linkedAvatarId: activeAssetCategory.value === '动作管理' && assetActionType.value === '自定义动作' ? linkedAvatar?.subtitle || '' : '',
+      linkedAvatarId: activeAssetCategory.value === '动作管理' && ['自定义动作', '走动动作'].includes(assetActionType.value) ? linkedAvatar?.subtitle || '' : '',
+      linkedCommonActionAssetId: activeAssetCategory.value === '动作管理' && ['自定义动作', '走动动作'].includes(assetActionType.value) ? linkedCommonAction?.subtitle || '' : '',
+      linkedCommonActionId: activeAssetCategory.value === '动作管理' && ['自定义动作', '走动动作'].includes(assetActionType.value) ? linkedCommonAction?.actionId || '' : '',
+      linkedCommonActionName: activeAssetCategory.value === '动作管理' && ['自定义动作', '走动动作'].includes(assetActionType.value) ? linkedCommonAction?.name || '' : '',
       actionId: activeAssetCategory.value === '动作管理' ? assetActionId.value.trim() : '',
       actionAssetType: activeAssetCategory.value === '动作管理' ? assetActionType.value : '',
+      walkingConfig: activeAssetCategory.value === '动作管理' && assetActionType.value === '走动动作'
+        ? {
+            targetX: Number(walkingTargetX.value),
+            targetY: Number(walkingTargetY.value),
+            startDuration: Number(walkingStartDuration.value),
+            startSpeed: Number(walkingStartSpeed.value),
+            travelSpeed: Number(walkingTravelSpeed.value),
+            travelPhase: Number(walkingTravelPhase.value),
+            travelPeriod: Number(walkingTravelPeriod.value),
+            travelAmplitude: Number(walkingTravelAmplitude.value),
+            stopDuration: Number(walkingStopDuration.value),
+            stopSpeed: Number(walkingStopSpeed.value),
+          }
+        : null,
       avatarId: activeAssetCategory.value === '形象管理' ? assetAvatarId.value.trim() : '',
       apiKey: activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D在线版' ? assetApiKey.value.trim() : '',
       gender: activeAssetCategory.value === '形象管理'
@@ -729,10 +869,10 @@ function submitCreate() {
           : activeAssetCategory.value === '预设背景管理'
             ? assetBackgroundDescription.value.trim()
             : '',
-      preview: activeAssetCategory.value === '形象管理' && assetPreviewFile.value
+      preview: ['形象管理', '动作管理'].includes(activeAssetCategory.value) && assetPreviewFile.value
         ? URL.createObjectURL(assetPreviewFile.value)
         : existingAsset?.preview || '',
-      previewName: activeAssetCategory.value === '形象管理' ? assetPreviewFile.value?.name || existingAsset?.previewName || '' : '',
+      previewName: ['形象管理', '动作管理'].includes(activeAssetCategory.value) ? assetPreviewFile.value?.name || existingAsset?.previewName || '' : '',
       voiceId: activeAssetCategory.value === '音色管理' ? assetVoiceId.value.trim() : '',
       voiceType: activeAssetCategory.value === '音色管理' ? assetVoiceType.value : '',
       pitch: activeAssetCategory.value === '音色管理' ? assetVoicePitch.value : null,
@@ -756,6 +896,9 @@ function submitCreate() {
     }
     if (editingIndex >= 0) assetRows.value[editingIndex] = updatedAsset
     else assetRows.value.unshift(updatedAsset)
+    const sourceAssetIndex = moduleData.assets.rows.findIndex((row) => row.subtitle === updatedAsset.subtitle)
+    if (sourceAssetIndex >= 0) moduleData.assets.rows[sourceAssetIndex] = updatedAsset
+    else moduleData.assets.rows.unshift(updatedAsset)
     if (editingIndex >= 0 && activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D本地版') {
       avatarAssetActionRelations.value[updatedAsset.subtitle] = assetActionRelationsDraft.value.map((relation) => ({ ...relation }))
     }
@@ -809,7 +952,8 @@ function submitCreate() {
   }
   if (route.meta.moduleKey === 'digitalHumans') {
     const wasEditing = Boolean(editingDigitalHumanCode.value)
-    const typeLabel = digitalHumanType.value === 'online' ? '2D在线版' : '2D本地版'
+    const typeLabel = digitalHumanEdition.value
+    const editionMode = digitalHumanEditionMode.value
     if (wasEditing) {
       const index = digitalHumanRows.value.findIndex((row) => row.appCode === editingDigitalHumanCode.value)
       if (index !== -1) {
@@ -817,9 +961,11 @@ function submitCreate() {
           ...digitalHumanRows.value[index],
           name: projectName.value,
           type: typeLabel,
+          editionMode,
           description: digitalHumanDescription.value,
           extra: associatedAgent.value,
           resolution: videoResolution.value,
+          serverAddress: editionMode === 'local' ? digitalHumanServerAddress.value.trim() : '',
         }
       }
     } else {
@@ -843,13 +989,15 @@ function submitCreate() {
         name: projectName.value,
         subtitle: '数字人形象',
         type: typeLabel,
+        editionMode,
         extra: agentName,
         linkedAgentId: agentId,
         description: digitalHumanDescription.value,
         createdAt,
         appCode: generateAppCode(),
         resolution: videoResolution.value,
-        preview: typeLabel === '2D在线版' ? moduleData.digitalHumans.rows[0].preview : moduleData.digitalHumans.rows[2].preview,
+        serverAddress: editionMode === 'local' ? digitalHumanServerAddress.value.trim() : '',
+        preview: editionMode === 'online' ? moduleData.digitalHumans.rows[0].preview : moduleData.digitalHumans.rows[2].preview,
         isTemplate: false,
         tone: 'violet',
       }
@@ -875,10 +1023,14 @@ function generateAppCode() {
 function openDigitalHumanSettings(row) {
   editingDigitalHumanCode.value = row.appCode
   projectName.value = row.name
-  digitalHumanType.value = row.type === '2D在线版' ? 'online' : 'local'
+  const rowEditionMode = row.editionMode || getEditionMode(row.type)
+  digitalHumanEdition.value = digitalHumanEditions.value.includes(row.type)
+    ? row.type
+    : digitalHumanEditions.value.find((edition) => getEditionMode(edition) === rowEditionMode) || digitalHumanEditions.value[0] || ''
   digitalHumanDescription.value = row.description
   associatedAgent.value = row.extra
   videoResolution.value = row.resolution
+  digitalHumanServerAddress.value = rowEditionMode === 'local' ? row.serverAddress || '127.0.0.1' : ''
   modalOpen.value = true
 }
 
@@ -1041,6 +1193,19 @@ function startTraining(row) {
   showToast('训练已开始')
 }
 
+function resetCompletionWalkingConfig(config = {}) {
+  completionWalkingTargetX.value = config.targetX ?? 0
+  completionWalkingTargetY.value = config.targetY ?? 0
+  completionWalkingStartDuration.value = config.startDuration ?? 500
+  completionWalkingStartSpeed.value = config.startSpeed ?? 1
+  completionWalkingTravelSpeed.value = config.travelSpeed ?? 1
+  completionWalkingTravelPhase.value = config.travelPhase ?? 0
+  completionWalkingTravelPeriod.value = config.travelPeriod ?? 1000
+  completionWalkingTravelAmplitude.value = config.travelAmplitude ?? 1
+  completionWalkingStopDuration.value = config.stopDuration ?? 500
+  completionWalkingStopSpeed.value = config.stopSpeed ?? 0
+}
+
 function openActionModal(type, row) {
   actionType.value = type
   selectedTraining.value = row
@@ -1048,6 +1213,7 @@ function openActionModal(type, row) {
   completionApiKey.value = ''
   completionProjectId.value = ''
   completionAvatarId.value = ''
+  resetCompletionWalkingConfig(row.walkingConfig)
   completionPreviewFile.value = null
   replacementVideo.value = null
   actionModalOpen.value = true
@@ -1060,6 +1226,7 @@ function closeActionModal() {
   failureReason.value = ''
   replacementVideo.value = null
   completionPreviewFile.value = null
+  resetCompletionWalkingConfig()
   if (replacementVideoInput.value) replacementVideoInput.value.value = ''
   if (completionPreviewInput.value) completionPreviewInput.value.value = ''
 }
@@ -1101,11 +1268,25 @@ function submitTrainingAction() {
     row.status = '已完成'
     row.progress = 100
     row.preview = URL.createObjectURL(completionPreviewFile.value)
-    if (row.type === '2D在线版') {
+    if ((row.editionMode || getEditionMode(row.type)) === 'online') {
       row.apiKey = completionApiKey.value.trim()
       row.projectId = completionProjectId.value.trim()
     } else {
       row.avatarId = completionAvatarId.value.trim()
+      if (selectedTrainingRequiresWalkingConfig.value) {
+        row.walkingConfig = {
+          targetX: Number(completionWalkingTargetX.value),
+          targetY: Number(completionWalkingTargetY.value),
+          startDuration: Number(completionWalkingStartDuration.value),
+          startSpeed: Number(completionWalkingStartSpeed.value),
+          travelSpeed: Number(completionWalkingTravelSpeed.value),
+          travelPhase: Number(completionWalkingTravelPhase.value),
+          travelPeriod: Number(completionWalkingTravelPeriod.value),
+          travelAmplitude: Number(completionWalkingTravelAmplitude.value),
+          stopDuration: Number(completionWalkingStopDuration.value),
+          stopSpeed: Number(completionWalkingStopSpeed.value),
+        }
+      }
     }
     showToast('训练已完成')
   }
@@ -1119,6 +1300,11 @@ function statusClass(status) {
   if (['不通过'].includes(status)) return 'danger'
   return 'neutral'
 }
+
+function getEditionMode(editionName) {
+  if (!editionName) return ''
+  return editionTypeMap.value[editionName] === '2D本地版' ? 'local' : 'online'
+}
 </script>
 
 <template>
@@ -1126,7 +1312,19 @@ function statusClass(status) {
     <section class="page-heading">
       <div>
         <div class="eyebrow"><span></span>{{ current.eyebrow }}</div>
-        <h1>{{ current.title }}</h1>
+        <div v-if="route.meta.moduleKey === 'assets'" class="asset-page-title-row">
+          <h1>{{ current.title }}</h1>
+          <label class="asset-edition-heading-select">
+            <AppIcon name="layers" :size="15" />
+            <span>数字人版本</span>
+            <select :value="activeAssetEdition" aria-label="资产数字人版本选择" @change="selectAssetEdition($event.target.value)">
+              <option>2D本地版</option>
+              <option>2D在线版</option>
+            </select>
+            <AppIcon name="chevron-down" :size="14" />
+          </label>
+        </div>
+        <h1 v-else>{{ current.title }}</h1>
         <p>{{ current.description }}</p>
       </div>
       <button class="primary-button" :class="{ 'tutorial-target-action': highlightNewTraining || highlightCreateKnowledge || highlightCreateDigitalHuman }" @click="handlePrimaryActionClick">
@@ -1163,8 +1361,7 @@ function statusClass(status) {
             <AppIcon name="filter" :size="17" />
             <select v-model="activeDigitalHumanType" aria-label="数字人类型筛选">
               <option>全部类型</option>
-              <option>2D在线版</option>
-              <option>2D本地版</option>
+              <option v-for="edition in digitalHumanEditions" :key="edition">{{ edition }}</option>
             </select>
           </div>
           <div v-else class="filter-wrap">
@@ -1307,13 +1504,12 @@ function statusClass(status) {
         </div>
         <div class="table-scroll">
           <table class="resource-type-table">
-            <thead><tr><th>资源名称</th><th>配置信息</th><th>创建时间</th><th>状态</th><th>操作</th></tr></thead>
+            <thead><tr><th>资源名称</th><th>配置信息</th><th>创建时间</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="row in filteredResourceRows" :key="row.subtitle">
                 <td><div class="entity-cell"><span class="entity-avatar" :class="row.tone"><AppIcon :name="row.type === '语音识别资源池' ? 'message' : row.type === '语音合成资源池' ? 'video' : 'server'" :size="17" /></span><span><strong>{{ row.name }}</strong><small>{{ row.subtitle }}</small></span></div></td>
                 <td><div class="resource-config-summary"><span>{{ row.extra }}</span><small v-if="row.appId">APPID：{{ row.appId }}</small><small v-else>license.key 已安全保存</small></div></td>
                 <td>{{ row.date }}</td>
-                <td><span class="status-tag" :class="statusClass(row.status)"><i></i>{{ row.status }}</span></td>
                 <td><div class="resource-row-actions"><button type="button" @click="openResourceEditor(row)"><AppIcon name="edit" :size="13" />编辑</button><button type="button" class="danger" @click="deleteResource(row)"><AppIcon name="trash" :size="13" />删除</button></div></td>
               </tr>
             </tbody>
@@ -1344,12 +1540,12 @@ function statusClass(status) {
         </div>
         <div class="table-scroll">
           <table class="asset-classified-table">
-            <thead><tr><th>资产名称</th><th>版本类型</th><th>资产模块</th><th>文件信息</th><th>更新时间</th><th>状态</th><th>操作</th></tr></thead>
+            <thead><tr><th>资产名称</th><th>版本类型</th><th>资产模块</th><th>文件信息</th><th>更新时间</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="row in filteredAssetRows" :key="row.subtitle">
                 <td>
                   <div class="entity-cell">
-                    <button v-if="row.category === '形象管理' && row.preview" type="button" class="asset-avatar-preview-button" :aria-label="`放大查看${row.name}形象预览图`" title="点击放大预览" @click="openImagePreview(row)">
+                    <button v-if="['形象管理', '动作管理'].includes(row.category) && row.preview" type="button" class="asset-avatar-preview-button" :aria-label="`放大查看${row.name}形象预览图`" title="点击放大预览" @click="openImagePreview(row)">
                       <img :src="row.preview" :alt="`${row.name}形象预览图`" />
                     </button>
                     <button v-else-if="row.category === '预设背景管理' && row.backgroundPreview" type="button" class="asset-background-preview" :aria-label="`放大查看${row.name}背景预览图`" title="点击放大预览" @click="openBackgroundPreview(row)">
@@ -1363,7 +1559,6 @@ function statusClass(status) {
                 <td>{{ row.category }}</td>
                 <td>{{ row.extra }}</td>
                 <td>{{ row.date }}</td>
-                <td><span class="status-tag" :class="statusClass(row.status)"><i></i>{{ row.status }}</span></td>
                 <td class="action-column">
                   <div class="asset-row-actions">
                     <button v-if="['形象管理', '预设背景管理'].includes(row.category)" type="button" class="asset-default-button" :class="{ active: row.isDefault }" :disabled="row.isDefault" @click="setDefaultAsset(row)"><AppIcon name="check" :size="13" />{{ row.isDefault ? '当前默认' : '设为默认' }}</button>
@@ -1399,7 +1594,7 @@ function statusClass(status) {
         <table :class="{ 'training-table': route.meta.moduleKey === 'training' }">
           <thead>
             <tr>
-              <th v-for="column in current.columns" :key="column">{{ column }}</th>
+              <th v-for="column in current.columns.filter((column) => !(route.meta.moduleKey === 'training' && column === '状态'))" :key="column">{{ column }}</th>
               <th class="action-column">操作</th>
             </tr>
           </thead>
@@ -1416,9 +1611,10 @@ function statusClass(status) {
                 </div>
               </td>
               <td><span class="type-tag">{{ row.type }}</span></td>
+              <td v-if="route.meta.moduleKey === 'training'"><span class="avatar-type-tag" :class="{ action: row.avatarType === '动作形象', walking: row.avatarType === '走动动作形象' }">{{ row.avatarType || '播报形象' }}</span></td>
               <td>{{ row.extra || row.date }}</td>
               <td v-if="!['training', 'digitalHumans'].includes(route.meta.moduleKey)">{{ row.date }}</td>
-              <td v-if="route.meta.moduleKey !== 'digitalHumans'">
+              <td v-if="!['training', 'digitalHumans'].includes(route.meta.moduleKey)">
                 <div class="status-cell">
                   <span class="status-tag" :class="statusClass(row.status)"><i></i>{{ row.status }}</span>
                   <small v-if="row.status === '不通过' && row.failureReason" class="failure-reason" :title="row.failureReason">
@@ -1462,32 +1658,57 @@ function statusClass(status) {
 
     <Transition name="fade">
       <div v-if="modalOpen" class="modal-backdrop" @click.self="closeModal">
-        <div class="modal-card" :class="{ 'training-modal': route.meta.moduleKey === 'training', 'digital-human-modal': route.meta.moduleKey === 'digitalHumans', 'avatar-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理', 'avatar-asset-action-edit-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' && activeAssetEdition === '2D本地版' && editingAssetId, 'voice-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理', 'background-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' }">
+        <div class="modal-card" :class="{ 'training-modal': route.meta.moduleKey === 'training', 'digital-human-modal': route.meta.moduleKey === 'digitalHumans', 'avatar-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理', 'avatar-asset-action-edit-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' && activeAssetEdition === '2D本地版' && editingAssetId, 'action-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理', 'voice-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理', 'background-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' }">
           <button class="modal-close" aria-label="关闭" @click="closeModal"><AppIcon name="close" /></button>
           <div class="modal-icon"><AppIcon :name="current.icon" :size="25" /></div>
           <h3>{{ editingAgentId ? '编辑智能体' : editingAssetId ? `编辑${activeAssetCategory.replace('管理', '')}资产` : route.meta.moduleKey === 'digitalHumans' && editingDigitalHumanCode ? '设置数字人' : primaryActionLabel }}</h3>
           <p>{{ editingAgentId ? '修改智能体的名称和说明信息。' : editingAssetId ? '修改资产信息，未重新上传的素材将保留原文件。' : route.meta.moduleKey === 'digitalHumans' && editingDigitalHumanCode ? '修改数字人的基础信息与关联配置。' : '填写基础信息，后续可以继续完善详细配置。' }}</p>
           <form @submit.prevent="submitCreate">
-            <label>{{ route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' ? '形象名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' ? '动作名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理' ? '音色名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' ? '背景名称' : '名称' }}</label>
-            <input v-model="projectName" autofocus required :placeholder="route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' ? '请输入形象名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' ? '请输入动作名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理' ? '请输入音色名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' ? '请输入背景名称' : `请输入${current.title}名称`" />
+            <fieldset v-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理'" class="type-fieldset action-asset-type-fieldset">
+              <legend>动作资产类型</legend>
+              <div class="type-options">
+                <label class="type-option" :class="{ selected: assetActionType === '通用动作' }">
+                  <input v-model="assetActionType" type="radio" name="asset-action-type" value="通用动作" required />
+                  <span class="type-radio"></span>
+                  <span class="type-copy"><strong>通用动作</strong><small>仅维护动作名称和动作 ID</small></span>
+                </label>
+                <label class="type-option" :class="{ selected: assetActionType === '自定义动作' }">
+                  <input v-model="assetActionType" type="radio" name="asset-action-type" value="自定义动作" required />
+                  <span class="type-radio"></span>
+                  <span class="type-copy"><strong>自定义动作</strong><small>上传动作视频并关联形象资产</small></span>
+                </label>
+                <label class="type-option" :class="{ selected: assetActionType === '通用走动动作' }">
+                  <input v-model="assetActionType" type="radio" name="asset-action-type" value="通用走动动作" required />
+                  <span class="type-radio"></span>
+                  <span class="type-copy"><strong>通用走动动作</strong><small>仅维护走动动作 ID</small></span>
+                </label>
+                <label class="type-option" :class="{ selected: assetActionType === '走动动作' }">
+                  <input v-model="assetActionType" type="radio" name="asset-action-type" value="走动动作" required />
+                  <span class="type-radio"></span>
+                  <span class="type-copy"><strong>走动动作</strong><small>配置位移和分阶段行走参数</small></span>
+                </label>
+              </div>
+            </fieldset>
+            <template v-if="!(route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' && assetActionType === '通用走动动作')">
+              <label>{{ route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' ? '形象名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' ? '动作名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理' ? '音色名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' ? '背景名称' : '名称' }}</label>
+              <input v-model="projectName" autofocus required :placeholder="route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' ? '请输入形象名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' ? '请输入动作名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理' ? '请输入音色名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' ? '请输入背景名称' : `请输入${current.title}名称`" />
+            </template>
             <template v-if="route.meta.moduleKey === 'training'">
               <fieldset class="type-fieldset">
                 <legend>数字人类型</legend>
-                <div class="type-options">
-                  <label class="type-option" :class="{ selected: digitalHumanType === 'online' }">
-                    <input v-model="digitalHumanType" type="radio" name="digital-human-type" value="online" required />
+                <div class="type-options training-edition-options">
+                  <label v-for="edition in digitalHumanEditions" :key="edition" class="type-option" :class="{ selected: trainingEdition === edition }">
+                    <input v-model="trainingEdition" type="radio" name="digital-human-type" :value="edition" required />
                     <span class="type-radio"></span>
-                    <span class="type-copy"><strong>2D在线版</strong><small>云端训练与在线使用</small></span>
-                  </label>
-                  <label class="type-option" :class="{ selected: digitalHumanType === 'local' }">
-                    <input v-model="digitalHumanType" type="radio" name="digital-human-type" value="local" required />
-                    <span class="type-radio"></span>
-                    <span class="type-copy"><strong>2D本地版</strong><small>本地部署与离线使用</small></span>
+                    <span class="type-copy">
+                      <strong>{{ edition }}</strong>
+                      <small>{{ editionTypeMap[edition] }} · {{ getEditionMode(edition) === 'local' ? '本地部署与离线使用' : '云端训练与在线使用' }}</small>
+                    </span>
                   </label>
                 </div>
               </fieldset>
 
-              <fieldset v-if="digitalHumanType === 'local'" class="type-fieldset local-avatar-type-fieldset">
+              <fieldset v-if="trainingEditionMode === 'local'" class="type-fieldset local-avatar-type-fieldset">
                 <legend>形象类型</legend>
                 <div class="type-options">
                   <label class="type-option" :class="{ selected: localAvatarType === '播报形象' }">
@@ -1498,17 +1719,57 @@ function statusClass(status) {
                   <label class="type-option" :class="{ selected: localAvatarType === '动作形象' }">
                     <input v-model="localAvatarType" type="radio" name="local-avatar-type" value="动作形象" required />
                     <span class="type-radio"></span>
-                    <span class="type-copy"><strong>动作形象</strong><small>用于动作编排和姿态展示</small></span>
+                    <span class="type-copy"><strong>动作训练</strong><small>用于动作编排和姿态展示</small></span>
                   </label>
                 </div>
               </fieldset>
 
-              <div v-if="digitalHumanType === 'local' && localAvatarType === '动作形象'" class="training-action-association">
+              <fieldset v-if="trainingEditionMode === 'local'" class="type-fieldset training-gender-fieldset">
+                <legend>性别</legend>
+                <div class="type-options">
+                  <label class="type-option" :class="{ selected: trainingGender === '男生' }">
+                    <input v-model="trainingGender" type="radio" name="training-gender" value="男生" required />
+                    <span class="type-radio"></span>
+                    <span class="type-copy"><strong>男生</strong><small>适用于男生数字人形象</small></span>
+                  </label>
+                  <label class="type-option" :class="{ selected: trainingGender === '女生' }">
+                    <input v-model="trainingGender" type="radio" name="training-gender" value="女生" required />
+                    <span class="type-radio"></span>
+                    <span class="type-copy"><strong>女生</strong><small>适用于女生数字人形象</small></span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <div v-if="trainingEditionMode === 'local' && localAvatarType === '播报形象'" class="training-voice-association">
+                <label for="training-voice">关联音色</label>
+                <select id="training-voice" v-model="trainingVoiceId" class="asset-link-select" required>
+                  <option value="" disabled>请选择关联音色</option>
+                  <option v-for="voice in trainingVoiceOptions" :key="voice.subtitle" :value="voice.voiceId || voice.subtitle">{{ voice.name }}（{{ voice.voiceId || voice.subtitle }}）</option>
+                </select>
+                <small v-if="!trainingVoiceOptions.length" class="form-error">暂无可用音色，请先在资产管理中上传 2D 本地版音色资产</small>
+              </div>
+
+              <div v-if="trainingEditionMode === 'local' && localAvatarType === '动作形象'" class="training-action-association">
                 <div class="training-action-association-heading">
                   <AppIcon name="workflow" :size="17" />
-                  <div><strong>动作形象关联</strong><span>将本次训练的动作形象归属到指定播报形象</span></div>
+                  <div><strong>动作关联</strong><span>将本次训练的动作归属到指定播报形象</span></div>
                 </div>
-                <div class="training-action-association-grid">
+                <fieldset class="type-fieldset training-action-kind-fieldset">
+                  <legend>动作类型</legend>
+                  <div class="type-options">
+                    <label class="type-option" :class="{ selected: trainingActionType === '普通动作' }">
+                      <input v-model="trainingActionType" type="radio" name="training-action-type" value="普通动作" required />
+                      <span class="type-radio"></span>
+                      <span class="type-copy"><strong>普通动作</strong><small>可选关联通用动作</small></span>
+                    </label>
+                    <label class="type-option" :class="{ selected: trainingActionType === '走动动作' }">
+                      <input v-model="trainingActionType" type="radio" name="training-action-type" value="走动动作" required />
+                      <span class="type-radio"></span>
+                      <span class="type-copy"><strong>走动动作</strong><small>可选关联通用走动动作</small></span>
+                    </label>
+                  </div>
+                </fieldset>
+                <div class="training-action-association-grid" :class="{ 'single-column': !trainingActionType }">
                   <div>
                     <label for="training-parent-avatar">所属播报形象</label>
                     <select id="training-parent-avatar" v-model="trainingParentAvatarId" required>
@@ -1516,16 +1777,16 @@ function statusClass(status) {
                       <option v-for="avatar in trainingBroadcastAvatarOptions" :key="avatar.subtitle" :value="avatar.subtitle">{{ avatar.name }}（{{ avatar.subtitle }}）</option>
                     </select>
                   </div>
-                  <div>
-                    <label for="training-common-action">关联的通用动作形象 <small>选填</small></label>
+                  <div v-if="trainingActionType">
+                    <label for="training-common-action">关联的{{ trainingActionType === '走动动作' ? '通用走动动作' : '通用动作' }} <small>选填</small></label>
                     <select id="training-common-action" v-model="trainingCommonActionId">
-                      <option value="">暂不关联通用动作形象</option>
-                      <option v-for="action in commonActionAssetOptions" :key="action.subtitle" :value="action.subtitle">{{ action.name }}（{{ action.actionId || action.subtitle }}）</option>
+                      <option value="">暂不关联{{ trainingActionType === '走动动作' ? '通用走动动作' : '通用动作' }}</option>
+                      <option v-for="action in trainingCommonActionOptions" :key="action.subtitle" :value="action.subtitle">{{ action.name }}（{{ action.actionId || action.subtitle }}）</option>
                     </select>
                   </div>
                 </div>
                 <small v-if="!trainingBroadcastAvatarOptions.length" class="form-error">暂无可用播报形象，请先在资产管理中上传 2D 本地版播报形象资产</small>
-                <small v-else-if="!commonActionAssetOptions.length" class="field-hint">当前暂无通用动作形象，可暂不关联或先前往资产管理上传</small>
+                <small v-else-if="trainingActionType && !trainingCommonActionOptions.length" class="field-hint">当前暂无{{ trainingActionType === '走动动作' ? '通用走动动作' : '通用动作' }}，可暂不关联或先前往资产管理上传</small>
               </div>
 
               <label>视频素材</label>
@@ -1542,7 +1803,7 @@ function statusClass(status) {
                 <span v-else class="upload-action">选择文件</span>
               </label>
               <Transition name="requirements">
-                <div v-if="digitalHumanType === 'online'" class="video-requirements">
+                <div v-if="trainingEditionMode === 'online'" class="video-requirements">
                   <div class="requirements-title">
                     <AppIcon name="file" :size="16" />
                     <strong>视频录制要求</strong>
@@ -1555,7 +1816,7 @@ function statusClass(status) {
                     <li>视频长度需为 3–6 分钟，分辨率需为 1080p～4K，文件大小不超过 4GB，视频中不能有黑帧。</li>
                   </ol>
                 </div>
-                <div v-else-if="digitalHumanType === 'local'" class="video-requirements">
+                <div v-else-if="trainingEditionMode === 'local'" class="video-requirements">
                   <div class="requirements-title">
                     <AppIcon name="file" :size="16" />
                     <strong>视频录制要求</strong>
@@ -1583,24 +1844,18 @@ function statusClass(status) {
               </label>
             </template>
             <template v-else-if="route.meta.moduleKey === 'digitalHumans'">
-              <fieldset class="type-fieldset">
-                <legend>数字人类型</legend>
-                <div class="type-options">
-                  <label class="type-option" :class="{ selected: digitalHumanType === 'online' }">
-                    <input v-model="digitalHumanType" type="radio" name="create-digital-human-type" value="online" required />
-                    <span class="type-radio"></span>
-                    <span class="type-copy"><strong>2D在线版</strong><small>云端运行与在线调用</small></span>
-                  </label>
-                  <label class="type-option" :class="{ selected: digitalHumanType === 'local' }">
-                    <input v-model="digitalHumanType" type="radio" name="create-digital-human-type" value="local" required />
-                    <span class="type-radio"></span>
-                    <span class="type-copy"><strong>2D本地版</strong><small>本地部署与离线运行</small></span>
-                  </label>
-                </div>
-              </fieldset>
+              <label for="create-digital-human-type">数字人类型</label>
+              <select id="create-digital-human-type" v-model="digitalHumanEdition" required>
+                <option v-for="edition in digitalHumanEditions" :key="edition" :value="edition">{{ edition }}</option>
+              </select>
 
               <label for="digital-human-description">描述</label>
               <textarea id="digital-human-description" v-model.trim="digitalHumanDescription" rows="3" required placeholder="请输入数字人的用途和场景描述"></textarea>
+
+              <template v-if="digitalHumanEditionMode === 'local'">
+                <label for="digital-human-server-address">数字人服务器地址</label>
+                <input id="digital-human-server-address" v-model.trim="digitalHumanServerAddress" required placeholder="127.0.0.1" />
+              </template>
 
               <div class="auto-agent-note">
                 <AppIcon name="bot" :size="18" />
@@ -1626,8 +1881,8 @@ function statusClass(status) {
               </fieldset>
             </template>
             <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理'">
-              <label for="asset-avatar-id">形象ID</label>
-              <input id="asset-avatar-id" v-model.trim="assetAvatarId" required placeholder="请输入形象ID" />
+              <label for="asset-avatar-id">项目ID</label>
+              <input id="asset-avatar-id" v-model.trim="assetAvatarId" required placeholder="请输入项目ID" />
               <template v-if="activeAssetEdition === '2D在线版'">
                 <label for="asset-api-key">API 密钥</label>
                 <div class="resource-secret-field asset-api-key-field">
@@ -1732,24 +1987,9 @@ function statusClass(status) {
               </section>
             </template>
             <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理'">
-              <fieldset class="type-fieldset action-asset-type-fieldset">
-                <legend>动作资产类型</legend>
-                <div class="type-options">
-                  <label class="type-option" :class="{ selected: assetActionType === '通用动作' }">
-                    <input v-model="assetActionType" type="radio" name="asset-action-type" value="通用动作" required />
-                    <span class="type-radio"></span>
-                    <span class="type-copy"><strong>通用动作</strong><small>仅维护动作名称和动作 ID</small></span>
-                  </label>
-                  <label class="type-option" :class="{ selected: assetActionType === '自定义动作' }">
-                    <input v-model="assetActionType" type="radio" name="asset-action-type" value="自定义动作" required />
-                    <span class="type-radio"></span>
-                    <span class="type-copy"><strong>自定义动作</strong><small>上传动作视频并关联形象资产</small></span>
-                  </label>
-                </div>
-              </fieldset>
-              <label for="asset-action-id">动作ID</label>
-              <input id="asset-action-id" v-model.trim="assetActionId" required placeholder="请输入动作ID，例如 xiaoran_action03" />
-              <template v-if="assetActionType === '自定义动作'">
+              <label for="asset-action-id">{{ assetActionType === '通用走动动作' ? '走动动作ID' : '动作ID' }}</label>
+              <input id="asset-action-id" v-model.trim="assetActionId" required :placeholder="assetActionType === '通用走动动作' ? '请输入走动动作ID' : '请输入动作ID，例如 xiaoran_action03'" />
+              <template v-if="['自定义动作', '走动动作'].includes(assetActionType)">
                 <label>动作视频</label>
                 <label class="video-upload" :class="{ 'has-file': videoFile }">
                   <input ref="videoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" :required="!editingAssetId" @change="handleVideoChange" />
@@ -1758,13 +1998,65 @@ function statusClass(status) {
                   <button v-if="videoFile" type="button" class="upload-remove" aria-label="移除动作视频" @click.prevent="clearVideo"><AppIcon name="close" :size="16" /></button>
                   <span v-else class="upload-action">选择视频</span>
                 </label>
+                <label>形象预览图</label>
+                <label class="video-upload asset-preview-upload" :class="{ 'has-file': assetPreviewFile }">
+                  <input ref="assetPreviewInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" :required="!editingAssetId" @change="handleAssetPreviewChange" />
+                  <span class="upload-icon"><img v-if="assetPreviewUrl" :src="assetPreviewUrl" alt="动作形象预览图缩略图" /><AppIcon v-else name="image" :size="22" /></span>
+                  <span class="upload-copy"><strong>{{ assetPreviewFile ? assetPreviewFile.name : '点击上传形象预览图' }}</strong><small>{{ assetPreviewFile ? `${(assetPreviewFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 JPG、PNG、WEBP、GIF，建议使用9:16图片' }}</small></span>
+                  <button v-if="assetPreviewFile" type="button" class="upload-remove" aria-label="移除形象预览图" @click.prevent="clearAssetPreview"><AppIcon name="close" :size="16" /></button>
+                  <span v-else class="upload-action">选择图片</span>
+                </label>
                 <label for="asset-linked-avatar">关联形象资产</label>
                 <select id="asset-linked-avatar" v-model="associatedAssetId" class="asset-link-select" required>
                   <option value="" disabled>请选择需要关联的形象资产</option>
                   <option v-for="avatar in assetAvatarOptions" :key="avatar.subtitle" :value="avatar.subtitle">{{ avatar.name }}（{{ avatar.subtitle }}）</option>
                 </select>
                 <small v-if="!assetAvatarOptions.length" class="form-error">当前版本暂无可关联的形象资产，请先上传形象资产</small>
+                <label for="asset-linked-common-action">关联{{ assetActionType === '走动动作' ? '通用走动动作' : '通用动作' }} <small>选填</small></label>
+                <select id="asset-linked-common-action" v-model="associatedCommonActionAssetId" class="asset-link-select">
+                  <option value="">暂不关联{{ assetActionType === '走动动作' ? '通用走动动作' : '通用动作' }}</option>
+                  <option v-for="action in commonActionLinkOptions" :key="action.subtitle" :value="action.subtitle">{{ action.name }}（{{ action.actionId || action.subtitle }}）</option>
+                </select>
+                <small v-if="!commonActionLinkOptions.length" class="field-hint">当前版本暂无可关联的{{ assetActionType === '走动动作' ? '通用走动动作' : '通用动作' }}，可暂不关联</small>
               </template>
+              <section v-if="assetActionType === '走动动作'" class="walking-action-config" aria-label="走动动作参数配置">
+                <div class="walking-action-config-heading">
+                  <span><AppIcon name="workflow" :size="17" /></span>
+                  <div><strong>走动参数配置</strong><small>配置目标位移以及启动、行进和停止三个阶段</small></div>
+                </div>
+                <div class="walking-action-config-grid">
+                  <fieldset>
+                    <legend>目标位移</legend>
+                    <div class="walking-parameter-grid two-columns">
+                      <label for="walking-target-x"><span>X</span><input id="walking-target-x" v-model.number="walkingTargetX" type="number" step="0.01" required /><small>位移坐标</small></label>
+                      <label for="walking-target-y"><span>Y</span><input id="walking-target-y" v-model.number="walkingTargetY" type="number" step="0.01" required /><small>位移坐标</small></label>
+                    </div>
+                  </fieldset>
+                  <fieldset>
+                    <legend>启动阶段</legend>
+                    <div class="walking-parameter-grid two-columns">
+                      <label for="walking-start-duration"><span>时长</span><div><input id="walking-start-duration" v-model.number="walkingStartDuration" type="number" min="0" step="1" required /><em>ms</em></div></label>
+                      <label for="walking-start-speed"><span>速度</span><input id="walking-start-speed" v-model.number="walkingStartSpeed" type="number" min="0" step="0.01" required /></label>
+                    </div>
+                  </fieldset>
+                  <fieldset class="walking-travel-stage">
+                    <legend>行进阶段</legend>
+                    <div class="walking-parameter-grid four-columns">
+                      <label for="walking-travel-speed"><span>速度</span><input id="walking-travel-speed" v-model.number="walkingTravelSpeed" type="number" min="0" step="0.01" required /></label>
+                      <label for="walking-travel-phase"><span>相位</span><input id="walking-travel-phase" v-model.number="walkingTravelPhase" type="number" step="0.01" required /></label>
+                      <label for="walking-travel-period"><span>周期</span><div><input id="walking-travel-period" v-model.number="walkingTravelPeriod" type="number" min="1" step="1" required /><em>ms</em></div></label>
+                      <label for="walking-travel-amplitude"><span>振幅</span><input id="walking-travel-amplitude" v-model.number="walkingTravelAmplitude" type="number" min="0" step="0.01" required /></label>
+                    </div>
+                  </fieldset>
+                  <fieldset>
+                    <legend>停止阶段</legend>
+                    <div class="walking-parameter-grid two-columns">
+                      <label for="walking-stop-duration"><span>时长</span><div><input id="walking-stop-duration" v-model.number="walkingStopDuration" type="number" min="0" step="1" required /><em>ms</em></div></label>
+                      <label for="walking-stop-speed"><span>速度</span><input id="walking-stop-speed" v-model.number="walkingStopSpeed" type="number" min="0" step="0.01" required /></label>
+                    </div>
+                  </fieldset>
+                </div>
+              </section>
             </template>
             <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理'">
               <div class="voice-asset-form-grid">
@@ -1974,7 +2266,7 @@ function statusClass(status) {
 
     <Transition name="fade">
       <div v-if="actionModalOpen" class="modal-backdrop" @click.self="closeActionModal">
-        <div class="modal-card workflow-action-modal">
+        <div class="modal-card workflow-action-modal" :class="{ 'walking-completion-modal': actionType === 'complete' && selectedTrainingRequiresWalkingConfig }">
           <button class="modal-close" aria-label="关闭" @click="closeActionModal"><AppIcon name="close" /></button>
           <div class="modal-icon">
             <AppIcon :name="actionType === 'reupload' ? 'video' : actionType === 'reject' ? 'close' : 'check'" :size="25" />
@@ -2017,7 +2309,7 @@ function statusClass(status) {
             </template>
 
             <template v-else-if="actionType === 'complete'">
-              <template v-if="selectedTraining?.type === '2D在线版'">
+              <template v-if="selectedTrainingEditionMode === 'online'">
                 <label for="completion-api-key">API 密钥</label>
                 <input id="completion-api-key" v-model.trim="completionApiKey" type="password" autocomplete="off" required placeholder="请输入 API 密钥" />
                 <label for="completion-project-id">项目 ID</label>
@@ -2027,6 +2319,45 @@ function statusClass(status) {
                 <label for="completion-avatar-id">形象 ID</label>
                 <input id="completion-avatar-id" v-model.trim="completionAvatarId" required placeholder="请输入本地版形象 ID" />
               </template>
+
+              <section v-if="selectedTrainingRequiresWalkingConfig" class="walking-action-config completion-walking-config" aria-label="训练完成走动参数配置">
+                <div class="walking-action-config-heading">
+                  <span><AppIcon name="workflow" :size="17" /></span>
+                  <div><strong>走动参数配置</strong><small>填写本次走动动作训练生成的位移和分阶段参数</small></div>
+                </div>
+                <div class="walking-action-config-grid">
+                  <fieldset>
+                    <legend>目标位移</legend>
+                    <div class="walking-parameter-grid two-columns">
+                      <label for="completion-walking-target-x"><span>X</span><input id="completion-walking-target-x" v-model.number="completionWalkingTargetX" type="number" step="0.01" required /><small>位移坐标</small></label>
+                      <label for="completion-walking-target-y"><span>Y</span><input id="completion-walking-target-y" v-model.number="completionWalkingTargetY" type="number" step="0.01" required /><small>位移坐标</small></label>
+                    </div>
+                  </fieldset>
+                  <fieldset>
+                    <legend>启动阶段</legend>
+                    <div class="walking-parameter-grid two-columns">
+                      <label for="completion-walking-start-duration"><span>时长</span><div><input id="completion-walking-start-duration" v-model.number="completionWalkingStartDuration" type="number" min="0" step="1" required /><em>ms</em></div></label>
+                      <label for="completion-walking-start-speed"><span>速度</span><input id="completion-walking-start-speed" v-model.number="completionWalkingStartSpeed" type="number" min="0" step="0.01" required /></label>
+                    </div>
+                  </fieldset>
+                  <fieldset class="walking-travel-stage">
+                    <legend>行进阶段</legend>
+                    <div class="walking-parameter-grid four-columns">
+                      <label for="completion-walking-travel-speed"><span>速度</span><input id="completion-walking-travel-speed" v-model.number="completionWalkingTravelSpeed" type="number" min="0" step="0.01" required /></label>
+                      <label for="completion-walking-travel-phase"><span>相位</span><input id="completion-walking-travel-phase" v-model.number="completionWalkingTravelPhase" type="number" step="0.01" required /></label>
+                      <label for="completion-walking-travel-period"><span>周期</span><div><input id="completion-walking-travel-period" v-model.number="completionWalkingTravelPeriod" type="number" min="1" step="1" required /><em>ms</em></div></label>
+                      <label for="completion-walking-travel-amplitude"><span>振幅</span><input id="completion-walking-travel-amplitude" v-model.number="completionWalkingTravelAmplitude" type="number" min="0" step="0.01" required /></label>
+                    </div>
+                  </fieldset>
+                  <fieldset>
+                    <legend>停止阶段</legend>
+                    <div class="walking-parameter-grid two-columns">
+                      <label for="completion-walking-stop-duration"><span>时长</span><div><input id="completion-walking-stop-duration" v-model.number="completionWalkingStopDuration" type="number" min="0" step="1" required /><em>ms</em></div></label>
+                      <label for="completion-walking-stop-speed"><span>速度</span><input id="completion-walking-stop-speed" v-model.number="completionWalkingStopSpeed" type="number" min="0" step="0.01" required /></label>
+                    </div>
+                  </fieldset>
+                </div>
+              </section>
 
               <label>形象预览图片</label>
               <label class="video-upload completion-preview-upload" :class="{ 'has-file': completionPreviewFile }">

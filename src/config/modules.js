@@ -30,14 +30,15 @@ export const moduleData = {
       { label: '2D在线版可训练次数', value: '16', change: '当前可用', icon: 'sparkles' },
       { label: '2D本地版可训练次数', value: '10', change: '当前可用', icon: 'server' },
     ],
-    columns: ['项目名称', '训练类型', '创建时间', '状态'],
+    columns: ['项目名称', '训练类型', '形象类型', '创建时间', '状态'],
     rows: [
-      { name: '企业讲解员 · 小雅', subtitle: 'ID: AVT-20260801', type: '2D在线版', date: '2026-08-01 14:26', progress: 100, status: '已完成', preview: presenterFemale, tone: 'violet' },
-      { name: '品牌推荐官 · 林夕', subtitle: 'ID: AVT-20260728', type: '2D在线版', date: '2026-07-28 09:42', progress: 72, status: '训练中', preview: presenterCreative, tone: 'blue' },
-      { name: '客服助手 · 安安', subtitle: 'ID: AVT-20260725', type: '2D本地版', date: '2026-07-25 16:08', progress: 36, status: '训练中', preview: presenterFemale, tone: 'cyan' },
-      { name: '课程导师 · 陈老师', subtitle: 'ID: AVT-20260722', type: '2D在线版', date: '2026-07-22 11:30', progress: 100, status: '已完成', preview: instructorMale, tone: 'orange' },
-      { name: '产品体验官 · 星野', subtitle: 'ID: AVT-20260718', type: '2D本地版', date: '2026-07-18 18:05', progress: 0, status: '待训练', preview: presenterCreative, tone: 'pink' },
-      { name: '直播主播 · 沐晴', subtitle: 'ID: AVT-20260715', type: '2D在线版', date: '2026-07-15 13:48', progress: 0, status: '不通过', failureReason: '视频中存在黑帧，请重新上传符合要求的视频素材', preview: presenterFemale, tone: 'violet' },
+      { name: '企业讲解员 · 小雅', subtitle: 'ID: AVT-20260801', type: '2D在线版', avatarType: '播报形象', date: '2026-08-01 14:26', progress: 100, status: '已完成', preview: presenterFemale, tone: 'violet' },
+      { name: '品牌推荐官 · 林夕', subtitle: 'ID: AVT-20260728', type: '2D在线版', avatarType: '播报形象', date: '2026-07-28 09:42', progress: 72, status: '训练中', preview: presenterCreative, tone: 'blue' },
+      { name: '客服助手 · 安安', subtitle: 'ID: AVT-20260725', type: '2D本地版', avatarType: '播报形象', date: '2026-07-25 16:08', progress: 36, status: '训练中', preview: presenterFemale, tone: 'cyan' },
+      { name: '展厅引导员 · 晓岚', subtitle: 'ID: AVT-20260724', type: '2D本地版', editionMode: 'local', avatarType: '走动动作形象', actionType: '走动动作', gender: '女生', parentAvatarId: 'AST-L-001', commonActionAssetId: '', commonActionId: '', commonActionName: '', date: '2026-07-24 15:36', progress: 68, status: '训练中', preview: presenterFemale, tone: 'cyan' },
+      { name: '课程导师 · 陈老师', subtitle: 'ID: AVT-20260722', type: '2D在线版', avatarType: '播报形象', date: '2026-07-22 11:30', progress: 100, status: '已完成', preview: instructorMale, tone: 'orange' },
+      { name: '产品体验官 · 星野', subtitle: 'ID: AVT-20260718', type: '2D本地版', avatarType: '动作形象', date: '2026-07-18 18:05', progress: 0, status: '待训练', preview: presenterCreative, tone: 'pink' },
+      { name: '直播主播 · 沐晴', subtitle: 'ID: AVT-20260715', type: '2D在线版', avatarType: '播报形象', date: '2026-07-15 13:48', progress: 0, status: '不通过', failureReason: '视频中存在黑帧，请重新上传符合要求的视频素材', preview: presenterFemale, tone: 'violet' },
     ],
   },
   agents: {
@@ -92,7 +93,8 @@ export const moduleData = {
     title: '权益管理', eyebrow: 'BENEFITS', description: '查看套餐用量、资源配额与权益消耗明细。', action: '分配权益', icon: 'crown', accent: '#f59e0b',
     stats: [
       { label: '设备授权数量', value: '2', change: '当前用户', icon: 'server' },
-      { label: '形象训练次数', value: '24', change: '当前用户', icon: 'sparkles' },
+      { label: '本地数字人形象训练次数', value: '12', change: '当前用户', icon: 'server' },
+      { label: '在线数字人形象训练次数', value: '12', change: '当前用户', icon: 'sparkles' },
     ],
     columns: ['授权名称', '授权码', '使用状态', '到期时间', '创建时间', '绑定设备MAC地址'],
     rows: [
