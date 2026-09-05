@@ -85,6 +85,7 @@ const associatedAssetId = ref('')
 const associatedCommonActionAssetId = ref('')
 const assetActionId = ref('')
 const assetActionType = ref('自定义动作')
+const assetActionDuration = ref('')
 const walkingTargetX = ref(0)
 const walkingTargetY = ref(0)
 const walkingStartDuration = ref(500)
@@ -408,6 +409,7 @@ function closeModal() {
   associatedCommonActionAssetId.value = ''
   assetActionId.value = ''
   assetActionType.value = '自定义动作'
+  assetActionDuration.value = ''
   walkingTargetX.value = 0
   walkingTargetY.value = 0
   walkingStartDuration.value = 500
@@ -587,6 +589,7 @@ function openAssetEditor(row) {
   associatedCommonActionAssetId.value = row.linkedCommonActionAssetId || ''
   assetActionId.value = row.actionId || (row.category === '动作管理' ? row.subtitle : '')
   assetActionType.value = row.actionAssetType || '自定义动作'
+  assetActionDuration.value = row.actionDurationSeconds ?? ''
   walkingTargetX.value = row.walkingConfig?.targetX ?? 0
   walkingTargetY.value = row.walkingConfig?.targetY ?? 0
   walkingStartDuration.value = row.walkingConfig?.startDuration ?? 500
@@ -869,6 +872,8 @@ function submitCreate() {
       ? `系统提示词 · ${assetPersonaSystemPrompt.value.trim()}`
       : activeAssetCategory.value === '动作管理' && ['通用动作', '通用走动动作'].includes(assetActionType.value)
       ? `${assetActionType.value} · ${assetActionId.value.trim()}`
+      : activeAssetCategory.value === '动作管理' && ['自定义动作', '走动动作'].includes(assetActionType.value)
+        ? `${uploadedFileInfo} · 时长 ${Number(assetActionDuration.value)}s`
       : activeAssetCategory.value === '预设背景管理'
       ? assetBackgroundType.value === '透明背景'
         ? '透明背景 · 无需背景素材'
@@ -901,6 +906,9 @@ function submitCreate() {
       linkedCommonActionName: activeAssetCategory.value === '动作管理' && ['自定义动作', '走动动作'].includes(assetActionType.value) ? linkedCommonAction?.name || '' : '',
       actionId: activeAssetCategory.value === '动作管理' ? assetActionId.value.trim() : '',
       actionAssetType: activeAssetCategory.value === '动作管理' ? assetActionType.value : '',
+      actionDurationSeconds: activeAssetCategory.value === '动作管理' && ['自定义动作', '走动动作'].includes(assetActionType.value)
+        ? Number(assetActionDuration.value)
+        : null,
       walkingConfig: activeAssetCategory.value === '动作管理' && assetActionType.value === '走动动作'
         ? {
             targetX: Number(walkingTargetX.value),
@@ -2111,6 +2119,19 @@ function getEditionMode(editionName) {
               <label for="asset-action-id">{{ assetActionType === '通用走动动作' ? '走动动作ID' : '动作ID' }}</label>
               <input id="asset-action-id" v-model.trim="assetActionId" required :placeholder="assetActionType === '通用走动动作' ? '请输入走动动作ID' : '请输入动作ID，例如 xiaoran_action03'" />
               <template v-if="['自定义动作', '走动动作'].includes(assetActionType)">
+                <label for="asset-action-duration">动作时长</label>
+                <div class="asset-action-duration-field">
+                  <input
+                    id="asset-action-duration"
+                    v-model.number="assetActionDuration"
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    required
+                    placeholder="请输入动作时长"
+                  />
+                  <span>s</span>
+                </div>
                 <label>动作视频</label>
                 <label class="video-upload" :class="{ 'has-file': videoFile }">
                   <input ref="videoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" :required="!editingAssetId" @change="handleVideoChange" />
