@@ -100,6 +100,7 @@ const assetApiKey = ref('')
 const showAssetApiKey = ref(false)
 const assetAvatarGender = ref('女')
 const assetDefaultVoiceId = ref('')
+const assetLinkedLipModelId = ref('')
 const assetAvatarDescription = ref('')
 const assetPreviewFile = ref(null)
 const assetPreviewInput = ref(null)
@@ -123,6 +124,9 @@ const assetBackgroundPreviewUrl = ref('')
 const assetBackgroundMaterialFile = ref(null)
 const assetBackgroundMaterialInput = ref(null)
 const assetBackgroundWebUrl = ref('')
+const assetLipModelFile = ref(null)
+const assetLipModelInput = ref(null)
+const assetPersonaSystemPrompt = ref('')
 const avatarAssetActionRelations = ref({})
 const assetActionRelationsDraft = ref([])
 const editingAssetRelationId = ref('')
@@ -138,10 +142,12 @@ const avatarActionCandidates = [
   { name: '左手指引形象', id: 'AVT-ACT-008' },
 ]
 const assetCategories = computed(() => activeAssetEdition.value === '2D本地版'
-  ? ['形象管理', '动作管理', '音色管理', '预设背景管理']
+  ? ['形象管理', '动作管理', '音色管理', '预设背景管理', '嘴唇模型管理', '智能体人设模板']
   : ['形象管理', '预设背景管理'])
 const assetAvatarOptions = computed(() => assetRows.value.filter((row) => row.edition === activeAssetEdition.value && row.category === '形象管理'))
 const assetVoiceOptions = computed(() => assetRows.value.filter((row) => row.category === '音色管理'))
+const assetLipModelOptions = computed(() => assetRows.value.filter((row) => row.edition === '2D本地版' && row.category === '嘴唇模型管理'))
+const defaultAssetLipModel = computed(() => assetLipModelOptions.value.find((row) => row.name === '通用嘴唇模型') || assetLipModelOptions.value[0])
 const trainingVoiceOptions = computed(() => assetRows.value.filter((row) => row.edition === '2D本地版'
   && row.category === '音色管理'))
 const trainingBroadcastAvatarOptions = computed(() => assetRows.value.filter((row) => row.edition === '2D本地版'
@@ -189,6 +195,7 @@ const failureReason = ref('')
 const completionApiKey = ref('')
 const completionProjectId = ref('')
 const completionAvatarId = ref('')
+const completionLipModelId = ref('')
 const completionWalkingTargetX = ref(0)
 const completionWalkingTargetY = ref(0)
 const completionWalkingStartDuration = ref(500)
@@ -212,7 +219,9 @@ const imagePreviewType = ref('avatar')
 
 const current = computed(() => moduleData[route.meta.moduleKey] || moduleData.training)
 const primaryActionLabel = computed(() => route.meta.moduleKey === 'assets'
-  ? `上传${activeAssetCategory.value.replace('管理', '')}资产`
+  ? activeAssetCategory.value === '智能体人设模板'
+    ? '新增人设模板'
+    : `上传${activeAssetCategory.value.replace('管理', '')}资产`
   : current.value.action)
 const agentOptions = computed(() => moduleData.agents.rows.map((row) => row.name))
 const displayRows = computed(() => {
@@ -350,6 +359,9 @@ function openModal() {
     videoResolution.value = '16:9'
     digitalHumanServerAddress.value = ''
   }
+  if (route.meta.moduleKey === 'assets' && activeAssetCategory.value === '形象管理') {
+    assetLinkedLipModelId.value = activeAssetEdition.value === '2D本地版' ? defaultAssetLipModel.value?.subtitle || '' : ''
+  }
   modalOpen.value = true
 }
 
@@ -411,6 +423,7 @@ function closeModal() {
   showAssetApiKey.value = false
   assetAvatarGender.value = '女'
   assetDefaultVoiceId.value = ''
+  assetLinkedLipModelId.value = ''
   assetAvatarDescription.value = ''
   assetPreviewFile.value = null
   if (assetPreviewUrl.value) URL.revokeObjectURL(assetPreviewUrl.value)
@@ -432,6 +445,8 @@ function closeModal() {
   assetBackgroundPreviewUrl.value = ''
   assetBackgroundMaterialFile.value = null
   assetBackgroundWebUrl.value = ''
+  assetLipModelFile.value = null
+  assetPersonaSystemPrompt.value = ''
   assetActionRelationsDraft.value = []
   editingAssetRelationId.value = ''
   assetRelationActionId.value = ''
@@ -442,6 +457,7 @@ function closeModal() {
   if (assetSilentVideoInput.value) assetSilentVideoInput.value.value = ''
   if (assetBackgroundPreviewInput.value) assetBackgroundPreviewInput.value.value = ''
   if (assetBackgroundMaterialInput.value) assetBackgroundMaterialInput.value.value = ''
+  if (assetLipModelInput.value) assetLipModelInput.value.value = ''
 }
 
 function handleAssetPreviewChange(event) {
@@ -502,6 +518,22 @@ function handleAssetBackgroundMaterialChange(event) {
 function clearAssetBackgroundMaterial() {
   assetBackgroundMaterialFile.value = null
   if (assetBackgroundMaterialInput.value) assetBackgroundMaterialInput.value.value = ''
+}
+
+function handleAssetLipModel(event) {
+  const file = event.target.files?.[0] || null
+  if (file && !file.name.toLowerCase().endsWith('.pth')) {
+    assetLipModelFile.value = null
+    event.target.value = ''
+    showToast('嘴唇模型文件仅支持 .pth 格式')
+    return
+  }
+  assetLipModelFile.value = file
+}
+
+function clearAssetLipModel() {
+  assetLipModelFile.value = null
+  if (assetLipModelInput.value) assetLipModelInput.value.value = ''
 }
 
 function createDefaultAvatarActionRelations() {
@@ -570,6 +602,7 @@ function openAssetEditor(row) {
   showAssetApiKey.value = false
   assetAvatarGender.value = row.gender || '女'
   assetDefaultVoiceId.value = row.defaultVoiceId || assetVoiceOptions.value[0]?.subtitle || ''
+  assetLinkedLipModelId.value = row.lipModelId || (row.category === '形象管理' && row.edition === '2D本地版' ? defaultAssetLipModel.value?.subtitle || '' : '')
   assetAvatarDescription.value = row.description || (row.category === '形象管理' ? `${row.name}形象资产` : '')
   assetVoiceId.value = row.voiceId || (row.category === '音色管理' ? row.subtitle : '')
   assetVoiceGender.value = row.gender || '女声'
@@ -580,6 +613,7 @@ function openAssetEditor(row) {
   assetBackgroundType.value = row.backgroundType || '透明背景'
   assetBackgroundDescription.value = row.description || (row.category === '预设背景管理' ? `${row.name}背景资产` : '')
   assetBackgroundWebUrl.value = row.backgroundWebUrl || ''
+  assetPersonaSystemPrompt.value = row.systemPrompt || ''
   if (row.category === '形象管理' && row.edition === '2D本地版') {
     const savedRelations = avatarAssetActionRelations.value[row.subtitle] || createDefaultAvatarActionRelations()
     if (!avatarAssetActionRelations.value[row.subtitle]) avatarAssetActionRelations.value[row.subtitle] = savedRelations.map((relation) => ({ ...relation }))
@@ -822,12 +856,18 @@ function submitCreate() {
       ? assetAudioFile.value
       : activeAssetCategory.value === '预设背景管理'
         ? assetBackgroundMaterialFile.value
+        : activeAssetCategory.value === '嘴唇模型管理'
+          ? assetLipModelFile.value
+          : activeAssetCategory.value === '智能体人设模板'
+            ? null
         : videoFile.value
     const existingFileInfo = existingAsset?.extra?.split(' · 关联')[0] || ''
     const uploadedFileInfo = uploadedFile
       ? `${uploadedFile.name} · ${(uploadedFile.size / 1024 / 1024).toFixed(1)} MB${['形象管理', '动作管理'].includes(activeAssetCategory.value) && assetPreviewFile.value ? ` · 预览：${assetPreviewFile.value.name}` : ''}`
       : existingFileInfo || '新建资产'
-    const assetFileInfo = activeAssetCategory.value === '动作管理' && ['通用动作', '通用走动动作'].includes(assetActionType.value)
+    const assetFileInfo = activeAssetCategory.value === '智能体人设模板'
+      ? `系统提示词 · ${assetPersonaSystemPrompt.value.trim()}`
+      : activeAssetCategory.value === '动作管理' && ['通用动作', '通用走动动作'].includes(assetActionType.value)
       ? `${assetActionType.value} · ${assetActionId.value.trim()}`
       : activeAssetCategory.value === '预设背景管理'
       ? assetBackgroundType.value === '透明背景'
@@ -883,6 +923,10 @@ function submitCreate() {
           ? assetVoiceGender.value
           : '',
       defaultVoiceId: activeAssetCategory.value === '形象管理' ? assetDefaultVoiceId.value : '',
+      lipModelId: activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D本地版' ? assetLinkedLipModelId.value : '',
+      lipModelName: activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D本地版'
+        ? assetLipModelOptions.value.find((row) => row.subtitle === assetLinkedLipModelId.value)?.name || ''
+        : '',
       description: activeAssetCategory.value === '形象管理'
         ? assetAvatarDescription.value.trim()
         : activeAssetCategory.value === '音色管理'
@@ -917,6 +961,13 @@ function submitCreate() {
       backgroundWebUrl: activeAssetCategory.value === '预设背景管理' && assetBackgroundType.value === '网页背景'
         ? assetBackgroundWebUrl.value.trim()
         : '',
+      lipModelFileName: activeAssetCategory.value === '嘴唇模型管理'
+        ? assetLipModelFile.value?.name || existingAsset?.lipModelFileName || ''
+        : '',
+      lipModelFileSize: activeAssetCategory.value === '嘴唇模型管理'
+        ? assetLipModelFile.value?.size || existingAsset?.lipModelFileSize || 0
+        : 0,
+      systemPrompt: activeAssetCategory.value === '智能体人设模板' ? assetPersonaSystemPrompt.value.trim() : '',
       date: '刚刚',
       status: '可用',
       tone: activeAssetEdition.value === '2D本地版' ? 'violet' : 'blue',
@@ -1240,6 +1291,7 @@ function openActionModal(type, row) {
   completionApiKey.value = ''
   completionProjectId.value = ''
   completionAvatarId.value = ''
+  completionLipModelId.value = selectedTrainingRequiresSilentVideo.value ? row.lipModelId || defaultAssetLipModel.value?.subtitle || '' : ''
   resetCompletionWalkingConfig(row.walkingConfig)
   completionSilentVideoFile.value = null
   completionPreviewFile.value = null
@@ -1253,6 +1305,7 @@ function closeActionModal() {
   selectedTraining.value = null
   failureReason.value = ''
   replacementVideo.value = null
+  completionLipModelId.value = ''
   completionSilentVideoFile.value = null
   completionPreviewFile.value = null
   resetCompletionWalkingConfig()
@@ -1313,6 +1366,9 @@ function submitTrainingAction() {
     } else {
       row.avatarId = completionAvatarId.value.trim()
       if (selectedTrainingRequiresSilentVideo.value) {
+        const lipModel = assetLipModelOptions.value.find((model) => model.subtitle === completionLipModelId.value)
+        row.lipModelId = completionLipModelId.value
+        row.lipModelName = lipModel?.name || ''
         row.silentVideoName = completionSilentVideoFile.value?.name || ''
         row.silentVideoUrl = URL.createObjectURL(completionSilentVideoFile.value)
       }
@@ -1594,13 +1650,13 @@ function getEditionMode(editionName) {
                     <button v-else-if="row.category === '预设背景管理' && row.backgroundPreview" type="button" class="asset-background-preview" :aria-label="`放大查看${row.name}背景预览图`" title="点击放大预览" @click="openBackgroundPreview(row)">
                       <img :src="row.backgroundPreview" :alt="`${row.name}背景预览图`" />
                     </button>
-                    <span v-else class="entity-avatar" :class="row.tone"><AppIcon :name="row.category === '动作管理' ? 'workflow' : row.category === '音色管理' ? 'message' : row.category === '预设背景管理' ? 'image' : 'user'" :size="17" /></span>
+                    <span v-else class="entity-avatar" :class="row.tone"><AppIcon :name="row.category === '动作管理' ? 'workflow' : row.category === '音色管理' ? 'message' : row.category === '预设背景管理' ? 'image' : row.category === '嘴唇模型管理' ? 'file' : row.category === '智能体人设模板' ? 'bot' : 'user'" :size="17" /></span>
                     <span><strong>{{ row.name }}</strong><small>{{ row.subtitle }}</small></span>
                   </div>
                 </td>
                 <td><span class="type-tag">{{ row.edition }}</span></td>
                 <td>{{ row.category }}</td>
-                <td>{{ row.extra }}</td>
+                <td><span v-if="row.category === '智能体人设模板'" class="persona-prompt-summary" :title="row.systemPrompt">{{ row.systemPrompt }}</span><template v-else>{{ row.extra }}</template></td>
                 <td>{{ row.date }}</td>
                 <td class="action-column">
                   <div class="asset-row-actions">
@@ -1701,7 +1757,7 @@ function getEditionMode(editionName) {
 
     <Transition name="fade">
       <div v-if="modalOpen" class="modal-backdrop" @click.self="closeModal">
-        <div class="modal-card" :class="{ 'training-modal': route.meta.moduleKey === 'training', 'digital-human-modal': route.meta.moduleKey === 'digitalHumans', 'avatar-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理', 'avatar-asset-action-edit-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' && activeAssetEdition === '2D本地版' && editingAssetId, 'action-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理', 'voice-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理', 'background-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' }">
+        <div class="modal-card" :class="{ 'training-modal': route.meta.moduleKey === 'training', 'digital-human-modal': route.meta.moduleKey === 'digitalHumans', 'avatar-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理', 'avatar-asset-action-edit-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' && activeAssetEdition === '2D本地版' && editingAssetId, 'action-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理', 'voice-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理', 'background-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理', 'lip-model-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '嘴唇模型管理', 'persona-template-asset-modal': route.meta.moduleKey === 'assets' && activeAssetCategory === '智能体人设模板' }">
           <button class="modal-close" aria-label="关闭" @click="closeModal"><AppIcon name="close" /></button>
           <div class="modal-icon"><AppIcon :name="current.icon" :size="25" /></div>
           <h3>{{ editingAgentId ? '编辑智能体' : editingAssetId ? `编辑${activeAssetCategory.replace('管理', '')}资产` : route.meta.moduleKey === 'digitalHumans' && editingDigitalHumanCode ? '设置数字人' : primaryActionLabel }}</h3>
@@ -1733,8 +1789,8 @@ function getEditionMode(editionName) {
               </div>
             </fieldset>
             <template v-if="!(route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' && assetActionType === '通用走动动作')">
-              <label>{{ route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' ? '形象名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' ? '动作名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理' ? '音色名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' ? '背景名称' : '名称' }}</label>
-              <input v-model="projectName" autofocus required :placeholder="route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' ? '请输入形象名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' ? '请输入动作名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理' ? '请输入音色名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' ? '请输入背景名称' : `请输入${current.title}名称`" />
+              <label>{{ route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' ? '形象名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' ? '动作名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理' ? '音色名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' ? '背景名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '嘴唇模型管理' ? '嘴唇模型名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '智能体人设模板' ? '模板名称' : '名称' }}</label>
+              <input v-model="projectName" autofocus required :placeholder="route.meta.moduleKey === 'assets' && activeAssetCategory === '形象管理' ? '请输入形象名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '动作管理' ? '请输入动作名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理' ? '请输入音色名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理' ? '请输入背景名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '嘴唇模型管理' ? '请输入嘴唇模型名称' : route.meta.moduleKey === 'assets' && activeAssetCategory === '智能体人设模板' ? '请输入模板名称' : `请输入${current.title}名称`" />
             </template>
             <template v-if="route.meta.moduleKey === 'training'">
               <fieldset class="type-fieldset">
@@ -1950,6 +2006,15 @@ function getEditionMode(editionName) {
                 </div>
               </div>
               <small v-if="!assetVoiceOptions.length" class="form-error">暂无可绑定音色，请先上传音色资产</small>
+              <template v-if="activeAssetEdition === '2D本地版'">
+                <label for="asset-lip-model">关联嘴唇模型</label>
+                <select id="asset-lip-model" v-model="assetLinkedLipModelId" class="asset-link-select" required>
+                  <option value="" disabled>请选择嘴唇模型</option>
+                  <option v-for="model in assetLipModelOptions" :key="model.subtitle" :value="model.subtitle">{{ model.name }}（{{ model.lipModelFileName || model.subtitle }}）</option>
+                </select>
+                <small v-if="assetLipModelOptions.length" class="field-hint asset-lip-model-hint">默认关联通用嘴唇模型，可根据形象需求切换其他模型</small>
+                <small v-else class="form-error asset-lip-model-hint">暂无可关联的嘴唇模型，请先在嘴唇模型管理中上传</small>
+              </template>
               <label for="asset-avatar-description">形象描述</label>
               <textarea id="asset-avatar-description" v-model.trim="assetAvatarDescription" rows="3" maxlength="200" required placeholder="请输入形象特点和适用场景"></textarea>
               <label>形象视频</label>
@@ -2141,6 +2206,28 @@ function getEditionMode(editionName) {
                 <span v-else class="upload-action">选择音频</span>
               </label>
               <audio v-if="assetAudioPreviewUrl" class="voice-audio-preview" :src="assetAudioPreviewUrl" controls></audio>
+            </template>
+            <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '嘴唇模型管理'">
+              <label>嘴唇模型文件</label>
+              <label class="video-upload lip-model-upload" :class="{ 'has-file': assetLipModelFile }">
+                <input ref="assetLipModelInput" type="file" accept=".pth,application/octet-stream" :required="!editingAssetId" @change="handleAssetLipModel" />
+                <span class="upload-icon"><AppIcon :name="assetLipModelFile ? 'check' : 'file'" :size="22" /></span>
+                <span class="upload-copy">
+                  <strong>{{ assetLipModelFile ? assetLipModelFile.name : '点击上传嘴唇模型文件' }}</strong>
+                  <small>{{ assetLipModelFile ? `${(assetLipModelFile.size / 1024 / 1024).toFixed(1)} MB` : editingAssetId ? '不重新上传将保留原模型文件' : '仅支持 .pth 后缀的模型文件' }}</small>
+                </span>
+                <button v-if="assetLipModelFile" type="button" class="upload-remove" aria-label="移除嘴唇模型文件" @click.prevent="clearAssetLipModel"><AppIcon name="close" :size="16" /></button>
+                <span v-else class="upload-action">选择文件</span>
+              </label>
+              <small class="field-hint lip-model-file-hint"><AppIcon name="info" :size="13" />请上传训练完成的 PyTorch 嘴唇模型文件，文件扩展名必须为 .pth</small>
+            </template>
+            <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '智能体人设模板'">
+              <label for="asset-persona-system-prompt">系统提示词</label>
+              <textarea id="asset-persona-system-prompt" v-model.trim="assetPersonaSystemPrompt" rows="10" maxlength="5000" required placeholder="请输入智能体人设、回答原则、语气风格和行为约束等系统提示词"></textarea>
+              <div class="persona-prompt-meta">
+                <span><AppIcon name="info" :size="13" />系统提示词将在智能体使用该模板时自动应用</span>
+                <em>{{ assetPersonaSystemPrompt.length }}/5000</em>
+              </div>
             </template>
             <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '预设背景管理'">
               <fieldset class="background-type-fieldset">
@@ -2377,6 +2464,13 @@ function getEditionMode(editionName) {
               </template>
 
               <template v-if="selectedTrainingRequiresSilentVideo">
+                <label for="completion-lip-model">关联嘴唇模型</label>
+                <select id="completion-lip-model" v-model="completionLipModelId" class="asset-link-select completion-lip-model-select" required>
+                  <option value="" disabled>请选择嘴唇模型</option>
+                  <option v-for="model in assetLipModelOptions" :key="model.subtitle" :value="model.subtitle">{{ model.name }}（{{ model.lipModelFileName || model.subtitle }}）</option>
+                </select>
+                <small v-if="assetLipModelOptions.length" class="field-hint completion-lip-model-hint">默认关联通用嘴唇模型，可根据训练结果选择其他模型</small>
+                <small v-else class="form-error completion-lip-model-hint">暂无可关联的嘴唇模型，请先前往资产管理上传</small>
                 <label>首页静默形象视频</label>
                 <label class="video-upload completion-silent-video-upload" :class="{ 'has-file': completionSilentVideoFile }">
                   <input ref="completionSilentVideoInput" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" required @change="handleCompletionSilentVideo" />

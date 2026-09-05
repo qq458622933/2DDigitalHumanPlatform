@@ -122,7 +122,7 @@ export const moduleData = {
   assets: {
     title: '资产管理', eyebrow: 'DIGITAL ASSETS', description: '集中管理图片、音频、视频与数字人项目资产。', action: '上传资产', icon: 'folder', accent: '#ec4899',
     stats: [
-      { label: '2D本地版资产', value: '16', change: '4 个资产模块', icon: 'server' },
+      { label: '2D本地版资产', value: '17', change: '6 个资产模块', icon: 'server' },
       { label: '2D在线版资产', value: '8', change: '2 个资产模块', icon: 'video' },
       { label: '形象资产', value: '9', change: '在线与本地', icon: 'user' },
       { label: '预设背景', value: '6', change: '在线与本地', icon: 'image' },
@@ -135,6 +135,7 @@ export const moduleData = {
       { name: '双手展示', subtitle: 'AST-ACT-002', edition: '2D本地版', category: '动作管理', type: '动作管理', extra: 'action_show · 4.6 MB', date: '2026-08-03 09:20', status: '可用', tone: 'pink' },
       { name: '温柔女声', subtitle: 'AST-VOICE-001', edition: '2D本地版', category: '音色管理', type: '音色管理', extra: 'WAV · 42.8 MB', date: '2026-08-02 14:18', status: '可用', tone: 'violet' },
       { name: '科技蓝背景', subtitle: 'AST-BG-001', edition: '2D本地版', category: '预设背景管理', type: '预设背景管理', backgroundType: '图片背景', backgroundPreview: backgroundTechBlue, description: '适用于科技产品讲解与企业展示场景。', extra: '图片背景 · PNG · 8.2 MB', date: '2026-08-01 10:05', status: '可用', isDefault: true, tone: 'blue' },
+      { name: '通用嘴唇模型', subtitle: 'AST-LIP-001', edition: '2D本地版', category: '嘴唇模型管理', type: '嘴唇模型管理', extra: 'common_lip_model.pth · 86.4 MB', lipModelFileName: 'common_lip_model.pth', lipModelFileSize: 90596966, date: '2026-08-07 14:32', status: '可用', tone: 'cyan' },
       { name: '在线讲解员·林夕', subtitle: 'AST-O-001', edition: '2D在线版', category: '形象管理', type: '形象管理', extra: '9:16 · 云端形象', date: '2026-08-06 16:35', status: '可用', preview: presenterCreative, isDefault: true, tone: 'pink' },
       { name: '在线主持人·陈老师', subtitle: 'AST-O-002', edition: '2D在线版', category: '形象管理', type: '形象管理', extra: '16:9 · 云端形象', date: '2026-08-05 13:26', status: '可用', preview: instructorMale, tone: 'orange' },
       { name: '企业展厅背景', subtitle: 'AST-BG-002', edition: '2D在线版', category: '预设背景管理', type: '预设背景管理', backgroundType: '图片背景', backgroundPreview: backgroundExhibition, description: '适用于企业展厅介绍和品牌内容展示。', extra: '图片背景 · WEBP · 5.6 MB', date: '2026-08-04 08:46', status: '可用', isDefault: true, tone: 'blue' },
