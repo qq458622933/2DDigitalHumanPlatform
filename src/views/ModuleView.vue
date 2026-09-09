@@ -88,12 +88,15 @@ const assetActionType = ref('自定义动作')
 const assetActionDuration = ref('')
 const walkingTargetX = ref(0)
 const walkingTargetY = ref(0)
+const walkingStartMode = ref('TRI_A')
 const walkingStartDuration = ref(500)
 const walkingStartSpeed = ref(1)
+const walkingTravelMode = ref('EASE')
 const walkingTravelSpeed = ref(1)
 const walkingTravelPhase = ref(0)
 const walkingTravelPeriod = ref(1000)
 const walkingTravelAmplitude = ref(1)
+const walkingStopMode = ref('TRI_A')
 const walkingStopDuration = ref(500)
 const walkingStopSpeed = ref(0)
 const assetAvatarId = ref('')
@@ -412,12 +415,15 @@ function closeModal() {
   assetActionDuration.value = ''
   walkingTargetX.value = 0
   walkingTargetY.value = 0
+  walkingStartMode.value = 'TRI_A'
   walkingStartDuration.value = 500
   walkingStartSpeed.value = 1
+  walkingTravelMode.value = 'EASE'
   walkingTravelSpeed.value = 1
   walkingTravelPhase.value = 0
   walkingTravelPeriod.value = 1000
   walkingTravelAmplitude.value = 1
+  walkingStopMode.value = 'TRI_A'
   walkingStopDuration.value = 500
   walkingStopSpeed.value = 0
   assetAvatarId.value = ''
@@ -592,12 +598,15 @@ function openAssetEditor(row) {
   assetActionDuration.value = row.actionDurationSeconds ?? ''
   walkingTargetX.value = row.walkingConfig?.targetX ?? 0
   walkingTargetY.value = row.walkingConfig?.targetY ?? 0
+  walkingStartMode.value = row.walkingConfig?.startMode || row.walkingConfig?.mode || 'TRI_A'
   walkingStartDuration.value = row.walkingConfig?.startDuration ?? 500
   walkingStartSpeed.value = row.walkingConfig?.startSpeed ?? 1
+  walkingTravelMode.value = row.walkingConfig?.travelMode || row.walkingConfig?.mode || 'EASE'
   walkingTravelSpeed.value = row.walkingConfig?.travelSpeed ?? 1
   walkingTravelPhase.value = row.walkingConfig?.travelPhase ?? 0
   walkingTravelPeriod.value = row.walkingConfig?.travelPeriod ?? 1000
   walkingTravelAmplitude.value = row.walkingConfig?.travelAmplitude ?? 1
+  walkingStopMode.value = row.walkingConfig?.stopMode || row.walkingConfig?.mode || 'TRI_A'
   walkingStopDuration.value = row.walkingConfig?.stopDuration ?? 500
   walkingStopSpeed.value = row.walkingConfig?.stopSpeed ?? 0
   assetAvatarId.value = row.avatarId || (row.category === '形象管理' ? row.subtitle : '')
@@ -913,12 +922,15 @@ function submitCreate() {
         ? {
             targetX: Number(walkingTargetX.value),
             targetY: Number(walkingTargetY.value),
+            startMode: walkingStartMode.value,
             startDuration: Number(walkingStartDuration.value),
             startSpeed: Number(walkingStartSpeed.value),
+            travelMode: walkingTravelMode.value,
             travelSpeed: Number(walkingTravelSpeed.value),
             travelPhase: Number(walkingTravelPhase.value),
             travelPeriod: Number(walkingTravelPeriod.value),
             travelAmplitude: Number(walkingTravelAmplitude.value),
+            stopMode: walkingStopMode.value,
             stopDuration: Number(walkingStopDuration.value),
             stopSpeed: Number(walkingStopSpeed.value),
           }
@@ -2176,6 +2188,13 @@ function getEditionMode(editionName) {
                   </fieldset>
                   <fieldset>
                     <legend>启动阶段</legend>
+                    <label class="walking-stage-mode" for="walking-start-mode">
+                      <span>走动模式</span>
+                      <select id="walking-start-mode" v-model="walkingStartMode" required>
+                        <option value="TRI_A">三角加速度（TRI_A）</option>
+                        <option value="EASE">匀速（EASE）</option>
+                      </select>
+                    </label>
                     <div class="walking-parameter-grid two-columns">
                       <label for="walking-start-duration"><span>时长</span><div><input id="walking-start-duration" v-model.number="walkingStartDuration" type="number" min="0" step="1" required /><em>ms</em></div></label>
                       <label for="walking-start-speed"><span>速度</span><input id="walking-start-speed" v-model.number="walkingStartSpeed" type="number" min="0" step="0.01" required /></label>
@@ -2183,6 +2202,13 @@ function getEditionMode(editionName) {
                   </fieldset>
                   <fieldset class="walking-travel-stage">
                     <legend>行进阶段</legend>
+                    <label class="walking-stage-mode" for="walking-travel-mode">
+                      <span>走动模式</span>
+                      <select id="walking-travel-mode" v-model="walkingTravelMode" required>
+                        <option value="TRI_A">三角加速度（TRI_A）</option>
+                        <option value="EASE">匀速（EASE）</option>
+                      </select>
+                    </label>
                     <div class="walking-parameter-grid four-columns">
                       <label for="walking-travel-speed"><span>速度</span><input id="walking-travel-speed" v-model.number="walkingTravelSpeed" type="number" min="0" step="0.01" required /></label>
                       <label for="walking-travel-phase"><span>相位</span><input id="walking-travel-phase" v-model.number="walkingTravelPhase" type="number" step="0.01" required /></label>
@@ -2192,6 +2218,13 @@ function getEditionMode(editionName) {
                   </fieldset>
                   <fieldset>
                     <legend>停止阶段</legend>
+                    <label class="walking-stage-mode" for="walking-stop-mode">
+                      <span>走动模式</span>
+                      <select id="walking-stop-mode" v-model="walkingStopMode" required>
+                        <option value="TRI_A">三角加速度（TRI_A）</option>
+                        <option value="EASE">匀速（EASE）</option>
+                      </select>
+                    </label>
                     <div class="walking-parameter-grid two-columns">
                       <label for="walking-stop-duration"><span>时长</span><div><input id="walking-stop-duration" v-model.number="walkingStopDuration" type="number" min="0" step="1" required /><em>ms</em></div></label>
                       <label for="walking-stop-speed"><span>速度</span><input id="walking-stop-speed" v-model.number="walkingStopSpeed" type="number" min="0" step="0.01" required /></label>

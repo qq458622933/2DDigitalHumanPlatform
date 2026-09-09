@@ -1187,6 +1187,13 @@ tbody tr:hover { background: #fcfcff; }
 .walking-action-config fieldset { min-width: 0; margin: 0; padding: 11px 12px 12px; border: 1px solid #e4e5ef; border-radius: 9px; background: rgba(255,255,255,.82); }
 .walking-action-config fieldset.walking-travel-stage { grid-column: 1 / -1; }
 .walking-action-config legend { padding: 0 5px; color: #676b7e; font-size: 10px; font-weight: 600; }
+.modal-card .walking-stage-mode { display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: center; gap: 8px; margin: 0 0 10px; color: #777b8d; font-size: 9px; }
+.modal-card .walking-stage-mode select { width: 100%; height: 34px; padding: 0 9px; color: #55596d; border: 1px solid #dfe1ea; border-radius: 7px; outline: 0; background: #fafbfe; font-size: 9px; }
+.modal-card .walking-stage-mode select:focus { border-color: color-mix(in srgb, var(--accent) 55%, white); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 9%, white); }
+.walking-mode-option > span small { color: #999dac; font-size: 8px; }
+.walking-mode-option.selected > span { border-color: #8b82d0; background: #f5f3ff; box-shadow: 0 0 0 2px rgba(111, 100, 190, .08); }
+.walking-mode-option.selected > span::before { border-color: #756bc2; background: #756bc2; }
+.walking-mode-option.selected > span strong { color: #5d54a7; }
 .walking-parameter-grid { display: grid; gap: 9px; }
 .walking-parameter-grid.two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .walking-parameter-grid.four-columns { grid-template-columns: repeat(4, minmax(0, 1fr)); }
