@@ -168,6 +168,18 @@ function closeQnaModal() {
   qnaSimilarQuestions.value = ['']
 }
 
+function openRealtimeEditor() {
+  router.push({
+    name: 'agentRealtimeEditor',
+    params: { agentId: route.params.agentId },
+    query: {
+      answer: qnaAnswer.value || undefined,
+      digitalHumanCode: route.params.digitalHumanCode || undefined,
+      digitalHumanType: linkedDigitalHumanType.value || undefined,
+    },
+  })
+}
+
 function saveQna() {
   if (editingQnaIndex.value === -1) {
     qnaRows.value.unshift({ question: qnaQuestion.value, similarQuestions: qnaSimilarQuestions.value.filter(Boolean), answer: qnaAnswer.value, hits: 0, createdAt: '刚刚', updatedAt: '刚刚' })
@@ -467,7 +479,12 @@ function saveSettings() {
             </div>
             <button type="button" class="add-similar-button" @click="addSimilarQuestion"><AppIcon name="plus" :size="14" />添加相似问</button>
 
-            <label>回答</label>
+            <div class="qna-answer-heading">
+              <label>回答</label>
+              <button type="button" class="realtime-edit-button" @click="openRealtimeEditor">
+                <AppIcon name="edit" :size="14" />实时编辑
+              </button>
+            </div>
             <div class="answer-tool-list">
               <button
                 v-for="tool in visibleAnswerTools"

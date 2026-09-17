@@ -7,12 +7,14 @@ import KnowledgeUploadView from '../views/KnowledgeUploadView.vue'
 import KnowledgeDetailView from '../views/KnowledgeDetailView.vue'
 import KnowledgeDocumentDetailView from '../views/KnowledgeDocumentDetailView.vue'
 import VersionManagementView from '../views/VersionManagementView.vue'
+import AgentRealtimeEditorView from '../views/AgentRealtimeEditorView.vue'
 
 const routes = [
   { path: '/', redirect: '/training' },
   { path: '/training', name: 'training', component: ModuleView, meta: { moduleKey: 'training' } },
   { path: '/agents', name: 'agents', component: ModuleView, meta: { moduleKey: 'agents' } },
   { path: '/agents/:agentId', name: 'agentDetail', component: AgentDetailView },
+  { path: '/agents/:agentId/realtime-editor', name: 'agentRealtimeEditor', component: AgentRealtimeEditorView },
   { path: '/digital-humans', name: 'digitalHumans', component: ModuleView, meta: { moduleKey: 'digitalHumans' } },
   { path: '/digital-humans/:appCode', name: 'digitalHumanDetail', component: DigitalHumanDetailView },
   { path: '/digital-humans/:digitalHumanCode/agent/:agentId', name: 'digitalHumanAgentDetail', component: AgentDetailView },

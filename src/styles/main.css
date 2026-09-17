@@ -1010,6 +1010,10 @@ tbody tr:hover { background: #fcfcff; }
 .similar-question-row > button { position: absolute; right: -5px; top: -6px; display: grid; place-items: center; width: 25px; height: 25px; color: #a0a5b4; border-radius: 50%; background: #f0f1f5; }
 .add-similar-button { display: inline-flex; align-items: center; justify-self: start; gap: 4px; min-height: 26px; margin: -7px 0 20px; padding: 0 9px; color: #4d8df1; border: 1px solid #9ec5fd; border-radius: 4px; background: #fff; font-size: 9px; }
 .answer-tool-list { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-bottom: 20px; }
+.qna-answer-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+.modal-card .qna-answer-heading > label { margin: 0; color: #303444; font-size: 12px; font-weight: 500; }
+.realtime-edit-button { display: inline-flex; align-items: center; gap: 5px; min-height: 29px; padding: 0 10px; color: #6558bf; border: 1px solid #dcd7fa; border-radius: 7px; background: #f5f3ff; font-size: 9px; font-weight: 600; transition: border-color .2s, background .2s, transform .2s; }
+.realtime-edit-button:hover { border-color: #bdb4ec; background: #ece8ff; transform: translateY(-1px); }
 .answer-tool-list button { display: inline-flex; align-items: center; gap: 5px; min-height: 27px; padding: 0 9px; border-radius: 6px; font-size: 8px; box-shadow: 0 3px 9px rgba(38,58,89,.07); }
 .answer-tool-list button.has-tool-tooltip { position: relative; }
 .answer-tool-list button.has-tool-tooltip::before { position: absolute; content: ''; left: 50%; bottom: calc(100% + 5px); z-index: 12; border: 5px solid transparent; border-top-color: #303448; opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(4px); transition: opacity .18s, transform .18s; }
