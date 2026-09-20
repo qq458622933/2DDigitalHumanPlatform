@@ -119,6 +119,7 @@ const selectedActionId = ref('')
 const popupContentType = ref('web')
 const popupContentUrl = ref('')
 const popupContentFileName = ref('')
+const popupVideoAudioEnabled = ref(false)
 let dragState = null
 let subtitleDragState = null
 let popupComponentDragState = null
@@ -700,6 +701,7 @@ function insertNarrationTool(tool) {
     popupContentType.value = 'web'
     popupContentUrl.value = ''
     popupContentFileName.value = ''
+    popupVideoAudioEnabled.value = false
     popupConfigModalOpen.value = true
     return
   }
@@ -897,6 +899,7 @@ function changePopupContentType(type) {
   popupContentType.value = type
   popupContentUrl.value = ''
   popupContentFileName.value = ''
+  popupVideoAudioEnabled.value = false
 }
 
 function handlePopupContentFile(event) {
@@ -911,7 +914,14 @@ function confirmPopupConfig() {
   const tool = narrationTools.find((item) => item.label === '弹窗')
   const typeLabel = { web: '网页', image: '图片', video: '视频' }[popupContentType.value]
   const source = popupContentType.value === 'web' ? popupContentUrl.value : popupContentFileName.value
-  appendNarrationTag(tool, `${typeLabel} · ${source}`)
+  const popupTool = {
+    ...tool,
+    contentType: popupContentType.value,
+    source,
+    videoAudioEnabled: popupContentType.value === 'video' && popupVideoAudioEnabled.value,
+  }
+  const audioDescription = popupContentType.value === 'video' ? ` · 音频${popupVideoAudioEnabled.value ? '开启' : '关闭'}` : ''
+  appendNarrationTag(popupTool, `${typeLabel} · ${source}${audioDescription}`)
   closePopupConfigModal()
 }
 
@@ -1407,6 +1417,10 @@ onBeforeUnmount(() => {
                 <strong>{{ popupContentFileName || `点击上传${popupContentType === 'image' ? '图片' : '视频'}素材` }}</strong>
                 <small>{{ popupContentFileName ? '素材已选择，可重新点击替换' : popupContentType === 'image' ? '支持 JPG、PNG、WEBP、GIF' : '支持 MP4、WEBM、MOV' }}</small>
               </label>
+              <button v-if="popupContentType === 'video'" type="button" role="switch" class="popup-video-audio-switch" :class="{ active: popupVideoAudioEnabled }" :aria-checked="popupVideoAudioEnabled" @click="popupVideoAudioEnabled = !popupVideoAudioEnabled">
+                <span><AppIcon name="video" :size="17" /><span><strong>播放音频</strong><small>开启后，弹窗视频将同时播放原始音频</small></span></span>
+                <i></i>
+              </button>
             </template>
             <div class="popup-config-actions"><button type="button" @click="closePopupConfigModal">取消</button><button type="submit">确认添加</button></div>
           </form>
@@ -1705,6 +1719,10 @@ onBeforeUnmount(() => {
 .popup-content-type-options button strong { font-size: 9px; }.popup-content-type-options button.active { color: #6254b7; border-color: #bdb4e9; background: #f2efff; box-shadow: 0 0 0 2px rgba(102,84,190,.07); }
 .popup-url-field { position: relative; margin-bottom: 18px; }.popup-url-field .app-icon { position: absolute; left: 11px; top: 12px; color: #8a8e9e; }.popup-url-field input { width: 100%; height: 40px; padding: 0 11px 0 35px; color: #505467; border: 1px solid #dfe1e9; border-radius: 8px; outline: 0; background: #fafbfc; font-size: 9px; }.popup-url-field input:focus { border-color: #8e82d2; box-shadow: 0 0 0 3px rgba(108,91,195,.08); }
 .popup-content-file-upload { display: grid; place-items: center; min-height: 132px; margin-bottom: 18px; padding: 15px; color: #7466c4; border: 1px dashed #c5bee8; border-radius: 10px; background: #faf9ff; cursor: pointer; text-align: center; }.popup-content-file-upload input { display: none; }.popup-content-file-upload > span { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 8px; border-radius: 10px; background: #ece8ff; }.popup-content-file-upload strong { max-width: 100%; overflow: hidden; color: #55596b; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }.popup-content-file-upload small { margin-top: 5px; color: #9da1af; font-size: 8px; }.popup-content-file-upload.has-file { border-style: solid; border-color: #b9afe5; background: #f4f1ff; }
+.popup-video-audio-switch { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; min-height: 54px; margin: -5px 0 18px; padding: 8px 11px; color: #85899a; border: 1px solid #e1e3ea; border-radius: 9px; background: #fafbfc; text-align: left; }
+.popup-video-audio-switch > span { display: flex; align-items: center; gap: 9px; }.popup-video-audio-switch > span > span { display: grid; gap: 3px; }.popup-video-audio-switch strong { color: #55596c; font-size: 9px; }.popup-video-audio-switch small { color: #999dac; font-size: 7px; }
+.popup-video-audio-switch > i { position: relative; flex: 0 0 auto; width: 31px; height: 18px; border-radius: 10px; background: #d9dce5; transition: background .2s; }.popup-video-audio-switch > i::after { position: absolute; content: ''; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(40,44,62,.22); transition: transform .2s; }
+.popup-video-audio-switch.active { color: #6659bb; border-color: #c5bdea; background: #f4f1ff; }.popup-video-audio-switch.active strong { color: #5f53ae; }.popup-video-audio-switch.active > i { background: #7568ca; }.popup-video-audio-switch.active > i::after { transform: translateX(13px); }
 .popup-config-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 2px; }.popup-config-actions button { min-width: 82px; min-height: 35px; border-radius: 8px; font-size: 9px; font-weight: 600; }.popup-config-actions button:first-child { color: #737789; border: 1px solid #dfe1e8; background: #fff; }.popup-config-actions button:last-child { color: #fff; background: linear-gradient(135deg,#7768d6,#5f51bc); box-shadow: 0 6px 14px rgba(91,75,181,.18); }
 .pause-config-modal { width: min(440px,100%); }
 .pause-config-icon { color: #c58b31; background: #fff5d9; }
