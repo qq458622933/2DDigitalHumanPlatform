@@ -991,8 +991,9 @@ tbody tr:hover { background: #fcfcff; }
 .qna-table th:first-child, .qna-table td:first-child { padding-left: 13px; }
 .qna-table td strong { display: block; overflow: hidden; color: #3e4254; font-size: 9px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .qna-table td p { margin: 0; overflow: hidden; color: #606578; text-overflow: ellipsis; white-space: nowrap; }
-.qna-row-actions { display: flex; align-items: center; justify-content: center; gap: 9px; }
+.qna-row-actions { display: flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
 .qna-row-actions button { display: inline-flex; align-items: center; gap: 4px; padding: 5px 2px; color: #4e8be9; background: transparent; font-size: 9px; }
+.qna-row-actions .qna-realtime-edit-button { color: #7567c8; }
 .qna-row-actions button:last-child { color: #9ebce9; }
 .qna-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 7px; margin-top: 16px; color: #697084; font-size: 9px; }
 .qna-pagination button { display: grid; place-items: center; width: 30px; height: 30px; color: #7f8799; border-radius: 4px; background: rgba(255,255,255,.75); }

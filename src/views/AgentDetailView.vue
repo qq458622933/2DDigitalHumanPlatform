@@ -42,8 +42,8 @@ const activeActionAssetType = ref('通用动作')
 const selectedAnswerActionId = ref('')
 const qnaRows = ref([
   { question: '继续讲解', answer: '好的，现在为您继续讲解。', hits: 12, createdAt: '2026-07-16 05:53:58', updatedAt: '2026-08-03 10:26:18' },
-  { question: '介绍一下产品功能', answer: '该产品提供数字人训练、智能体配置和内容生成能力。', hits: 28, createdAt: '2026-07-16 05:53:58', updatedAt: '2026-08-01 09:42:06' },
-  { question: '如何创建数字人', answer: '进入形象训练页面，上传符合要求的视频素材并开始训练。', hits: 19, createdAt: '2026-07-16 05:53:58', updatedAt: '2026-07-30 15:12:44' },
+  { question: '介绍一下产品功能', similarQuestions: ['平台有哪些主要功能', '可以介绍一下数字人平台吗'], answer: '该产品提供数字人训练、智能体配置和内容生成能力。', editMode: 'realtime', hits: 28, createdAt: '2026-07-16 05:53:58', updatedAt: '2026-08-01 09:42:06' },
+  { question: '如何创建数字人', similarQuestions: ['数字人应用怎么创建', '怎样新建一个数字人'], answer: '进入形象训练页面，上传符合要求的视频素材并开始训练。', editMode: 'realtime', hits: 19, createdAt: '2026-07-16 05:53:58', updatedAt: '2026-07-30 15:12:44' },
   { question: '支持哪些视频格式', answer: '在线版和本地版支持的视频格式有所不同，请参考上传要求。', hits: 8, createdAt: '2026-07-16 05:53:58', updatedAt: '2026-07-28 14:08:22' },
   { question: '应用码是什么', answer: '应用码是数字人的唯一调用标识，可在数字人卡片中复制。', hits: 16, createdAt: '2026-07-16 05:53:58', updatedAt: '2026-07-26 11:36:09' },
   { question: '结束讲解', answer: '好的，本次讲解到这里，感谢您的观看。', hits: 6, createdAt: '2026-07-16 05:53:58', updatedAt: '2026-07-25 16:08:30' },
@@ -168,12 +168,14 @@ function closeQnaModal() {
   qnaSimilarQuestions.value = ['']
 }
 
-function openRealtimeEditor() {
+function openRealtimeEditor(row = null) {
   router.push({
     name: 'agentRealtimeEditor',
     params: { agentId: route.params.agentId },
     query: {
-      answer: qnaAnswer.value || undefined,
+      answer: row?.answer || qnaAnswer.value || undefined,
+      question: row?.question || qnaQuestion.value || undefined,
+      similarQuestions: (row ? (row.similarQuestions || []) : qnaSimilarQuestions.value).filter(Boolean).join('\n') || undefined,
       digitalHumanCode: route.params.digitalHumanCode || undefined,
       digitalHumanType: linkedDigitalHumanType.value || undefined,
     },
@@ -385,7 +387,13 @@ function saveSettings() {
                   <td>{{ row.hits }}</td>
                   <td>{{ row.createdAt }}</td>
                   <td>{{ row.updatedAt }}</td>
-                  <td><div class="qna-row-actions"><button @click="openQnaModal(row)"><AppIcon name="edit" :size="14" />编辑</button><button @click="deleteQna(row)"><AppIcon name="close" :size="14" />删除</button></div></td>
+                  <td>
+                    <div class="qna-row-actions">
+                      <button v-if="row.editMode !== 'realtime'" @click="openQnaModal(row)"><AppIcon name="edit" :size="14" />编辑</button>
+                      <button v-else class="qna-realtime-edit-button" @click="openRealtimeEditor(row)"><AppIcon name="video" :size="14" />实时编辑</button>
+                      <button @click="deleteQna(row)"><AppIcon name="close" :size="14" />删除</button>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>

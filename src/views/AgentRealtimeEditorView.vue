@@ -120,6 +120,10 @@ const popupContentType = ref('web')
 const popupContentUrl = ref('')
 const popupContentFileName = ref('')
 const popupVideoAudioEnabled = ref(false)
+const qnaInfoModalOpen = ref(false)
+const qnaQuestion = ref(String(route.query.question || ''))
+const initialSimilarQuestions = String(route.query.similarQuestions || '').split('\n').map((item) => item.trim()).filter(Boolean)
+const qnaSimilarQuestions = ref(initialSimilarQuestions.length ? initialSimilarQuestions : [''])
 let dragState = null
 let subtitleDragState = null
 let popupComponentDragState = null
@@ -695,6 +699,24 @@ function saveEditor() {
   showToast('实时编辑内容已保存')
 }
 
+function addQnaSimilarQuestion() {
+  qnaSimilarQuestions.value.push('')
+}
+
+function removeQnaSimilarQuestion(index) {
+  if (qnaSimilarQuestions.value.length === 1) qnaSimilarQuestions.value[0] = ''
+  else qnaSimilarQuestions.value.splice(index, 1)
+}
+
+function saveQnaInfo() {
+  qnaQuestion.value = qnaQuestion.value.trim()
+  if (!qnaQuestion.value) return
+  const similarQuestions = qnaSimilarQuestions.value.map((item) => item.trim()).filter(Boolean)
+  qnaSimilarQuestions.value = similarQuestions.length ? similarQuestions : ['']
+  qnaInfoModalOpen.value = false
+  showToast('问题和相似问已保存')
+}
+
 function insertNarrationTool(tool) {
   captureNarrationSelection()
   if (tool.label === '弹窗') {
@@ -1009,6 +1031,7 @@ onBeforeUnmount(() => {
         <em>自动保存</em>
       </div>
       <div class="realtime-editor-header-actions">
+        <button type="button" class="editor-question-button" @click="qnaInfoModalOpen = true"><AppIcon name="edit" :size="16" />问答信息</button>
         <button type="button" class="editor-preview-button" @click="showToast('正在预览当前页面')"><AppIcon name="eye" :size="16" />预览</button>
         <button type="button" class="editor-save-button" @click="saveEditor"><AppIcon name="check" :size="16" />保存编辑</button>
       </div>
@@ -1394,6 +1417,32 @@ onBeforeUnmount(() => {
     </div>
 
     <Transition name="fade">
+      <div v-if="qnaInfoModalOpen" class="editor-config-modal-backdrop" @click.self="qnaInfoModalOpen = false">
+        <div class="popup-content-config-modal qna-info-config-modal" role="dialog" aria-modal="true" aria-label="编辑问答信息">
+          <button type="button" class="popup-config-close" aria-label="关闭" @click="qnaInfoModalOpen = false"><AppIcon name="close" :size="18" /></button>
+          <div class="popup-config-icon qna-info-config-icon"><AppIcon name="edit" :size="22" /></div>
+          <h2>编辑问答信息</h2>
+          <p>修改当前实时问答的问题与相似问，画面和解说词内容不会受到影响。</p>
+          <form @submit.prevent="saveQnaInfo">
+            <label class="popup-config-label" for="realtime-qna-question">问题</label>
+            <input id="realtime-qna-question" v-model="qnaQuestion" class="qna-info-question-input" required maxlength="200" placeholder="请输入问题" />
+            <div class="qna-similar-heading">
+              <label class="popup-config-label">相似问</label>
+              <button type="button" @click="addQnaSimilarQuestion"><AppIcon name="plus" :size="13" />添加相似问</button>
+            </div>
+            <div class="qna-similar-list">
+              <div v-for="(_, index) in qnaSimilarQuestions" :key="index" class="qna-similar-item">
+                <input v-model="qnaSimilarQuestions[index]" maxlength="200" :placeholder="`请输入相似问 ${index + 1}`" />
+                <button type="button" aria-label="删除相似问" @click="removeQnaSimilarQuestion(index)"><AppIcon name="trash" :size="14" /></button>
+              </div>
+            </div>
+            <div class="popup-config-actions"><button type="button" @click="qnaInfoModalOpen = false">取消</button><button type="submit">保存问答信息</button></div>
+          </form>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="fade">
       <div v-if="popupConfigModalOpen" class="editor-config-modal-backdrop" @click.self="closePopupConfigModal">
         <div class="popup-content-config-modal" role="dialog" aria-modal="true" aria-label="配置弹窗展示内容">
           <button type="button" class="popup-config-close" aria-label="关闭" @click="closePopupConfigModal"><AppIcon name="close" :size="18" /></button>
@@ -1499,6 +1548,7 @@ onBeforeUnmount(() => {
 .realtime-editor-title em { padding: 5px 8px; color: #3c9d7a; border-radius: 12px; background: #eaf8f2; font-size: 8px; font-style: normal; }
 .realtime-editor-header-actions { gap: 9px; }
 .realtime-editor-header-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 35px; padding: 0 13px; border-radius: 8px; font-size: 9px; font-weight: 600; }
+.editor-question-button { color: #6759bd; border: 1px solid #d8d2f2; background: #f6f4ff; }
 .editor-preview-button { color: #5e6376; border: 1px solid #dfe2ea; background: #fff; }
 .editor-save-button { color: #fff; background: linear-gradient(135deg, #7668dc, #5f50c5); box-shadow: 0 6px 14px rgba(101,84,199,.2); }
 .realtime-editor-workspace { display: grid; grid-template-columns: 190px minmax(570px, 1fr) 260px; align-items: start; gap: 13px; min-width: 0; }
@@ -1724,6 +1774,18 @@ onBeforeUnmount(() => {
 .popup-video-audio-switch > i { position: relative; flex: 0 0 auto; width: 31px; height: 18px; border-radius: 10px; background: #d9dce5; transition: background .2s; }.popup-video-audio-switch > i::after { position: absolute; content: ''; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(40,44,62,.22); transition: transform .2s; }
 .popup-video-audio-switch.active { color: #6659bb; border-color: #c5bdea; background: #f4f1ff; }.popup-video-audio-switch.active strong { color: #5f53ae; }.popup-video-audio-switch.active > i { background: #7568ca; }.popup-video-audio-switch.active > i::after { transform: translateX(13px); }
 .popup-config-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 2px; }.popup-config-actions button { min-width: 82px; min-height: 35px; border-radius: 8px; font-size: 9px; font-weight: 600; }.popup-config-actions button:first-child { color: #737789; border: 1px solid #dfe1e8; background: #fff; }.popup-config-actions button:last-child { color: #fff; background: linear-gradient(135deg,#7768d6,#5f51bc); box-shadow: 0 6px 14px rgba(91,75,181,.18); }
+.qna-info-config-modal { width: min(580px,100%); }
+.qna-info-config-icon { color: #327ccf; background: #eaf4ff; }
+.qna-info-question-input, .qna-similar-item input { width: 100%; height: 40px; padding: 0 12px; color: #505467; border: 1px solid #dfe1e9; border-radius: 8px; outline: 0; background: #fafbfc; font-size: 10px; }
+.qna-info-question-input { margin-bottom: 18px; }
+.qna-info-question-input:focus, .qna-similar-item input:focus { border-color: #8e82d2; box-shadow: 0 0 0 3px rgba(108,91,195,.08); }
+.qna-similar-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.qna-similar-heading .popup-config-label { margin: 0; }
+.qna-similar-heading button { display: inline-flex; align-items: center; gap: 4px; color: #6759bd; background: transparent; font-size: 9px; }
+.qna-similar-list { display: grid; gap: 8px; max-height: 220px; margin-bottom: 18px; overflow-y: auto; }
+.qna-similar-item { display: grid; grid-template-columns: minmax(0,1fr) 36px; gap: 7px; }
+.qna-similar-item > button { display: grid; place-items: center; color: #a2a6b5; border: 1px solid #e2e4eb; border-radius: 8px; background: #fff; }
+.qna-similar-item > button:hover { color: #db6572; border-color: #efc7cc; background: #fff7f8; }
 .pause-config-modal { width: min(440px,100%); }
 .pause-config-icon { color: #c58b31; background: #fff5d9; }
 .pause-duration-field { position: relative; margin-bottom: 7px; }
