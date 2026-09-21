@@ -35,6 +35,7 @@ const qnaSearch = ref('')
 const qnaModalOpen = ref(false)
 const editingQnaIndex = ref(-1)
 const qnaQuestion = ref('')
+const qnaQuestionInput = ref(null)
 const qnaAnswer = ref('')
 const qnaSimilarQuestions = ref([''])
 const actionPickerOpen = ref(false)
@@ -180,6 +181,15 @@ function openRealtimeEditor(row = null) {
       digitalHumanType: linkedDigitalHumanType.value || undefined,
     },
   })
+}
+
+function startRealtimeEditor() {
+  if (!qnaQuestion.value.trim()) {
+    showPageToast('请先填写标准问，再进入实时编辑')
+    qnaQuestionInput.value?.focus()
+    return
+  }
+  openRealtimeEditor()
 }
 
 function saveQna() {
@@ -473,7 +483,7 @@ function saveSettings() {
           <form class="qna-detail-form" @submit.prevent="saveQna">
             <label for="qna-question">标准问</label>
             <div class="counted-textarea">
-              <textarea id="qna-question" v-model.trim="qnaQuestion" maxlength="500" required placeholder="请输入标准问题"></textarea>
+              <textarea id="qna-question" ref="qnaQuestionInput" v-model.trim="qnaQuestion" maxlength="500" required placeholder="请输入标准问题"></textarea>
               <span>{{ qnaQuestion.length }} / 500</span>
             </div>
 
@@ -489,7 +499,7 @@ function saveSettings() {
 
             <div class="qna-answer-heading">
               <label>回答</label>
-              <button type="button" class="realtime-edit-button" @click="openRealtimeEditor">
+              <button type="button" class="realtime-edit-button" title="请先填写标准问和相似问，再进入实时编辑" @click="startRealtimeEditor">
                 <AppIcon name="edit" :size="14" />实时编辑
               </button>
             </div>
