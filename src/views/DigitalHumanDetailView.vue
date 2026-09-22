@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import InteractionConfigPanel from '../components/InteractionConfigPanel.vue'
@@ -24,7 +24,12 @@ const selectedPreview = ref(currentHuman.value.preview)
 const selectedMotion = ref('自然待机')
 const selectedVoice = ref('温柔女声')
 const speechRate = ref(1)
-const outputResolution = ref(currentHuman.value.resolution || '9:16')
+const outputResolution = ref(currentHuman.value.resolution || '1920*1080')
+const avatarPositionX = ref(currentHuman.value.avatarPositionX ?? 50)
+const avatarPositionY = ref(currentHuman.value.avatarPositionY ?? 50)
+const avatarScale = ref(currentHuman.value.avatarScale ?? 100)
+const previewStageRef = ref(null)
+const isAvatarDragging = ref(false)
 const backgroundMode = ref('透明背景')
 const customBackgroundInput = ref(null)
 const customBackgroundUrl = ref('')
@@ -38,17 +43,45 @@ const toastVisible = ref(false)
 const toastMessage = ref('')
 
 let backgroundSequence = 0
+let avatarDragState = null
 
 const activeBackground = computed(() => (
   backgroundItems.value.find((item) => item.id === activeBackgroundId.value)
   || backgroundItems.value[0]
 ))
 
-const previewBackgroundStyle = computed(() => (
-  activeBackground.value?.type === '图片背景'
-    ? { backgroundImage: `linear-gradient(rgba(20, 23, 40, .08), rgba(20, 23, 40, .08)), url("${activeBackground.value.source}")` }
-    : undefined
-))
+const parsedOutputResolution = computed(() => {
+  const value = String(outputResolution.value || '').trim()
+  const pixelMatch = value.match(/^(\d+)\s*[x*×]\s*(\d+)$/i)
+  if (pixelMatch && Number(pixelMatch[1]) > 0 && Number(pixelMatch[2]) > 0) return { width: Number(pixelMatch[1]), height: Number(pixelMatch[2]) }
+  const ratioMatch = value.match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/)
+  if (ratioMatch && Number(ratioMatch[1]) > 0 && Number(ratioMatch[2]) > 0) return { width: Number(ratioMatch[1]), height: Number(ratioMatch[2]) }
+  return { width: 16, height: 9 }
+})
+
+const previewBackgroundStyle = computed(() => {
+  const { width, height } = parsedOutputResolution.value
+  const ratio = width / Math.max(1, height)
+  const style = {
+    aspectRatio: `${width} / ${height}`,
+    width: `min(100%, ${Math.max(180, Math.round(620 * ratio))}px)`,
+  }
+  if (activeBackground.value?.type === '图片背景') {
+    style.backgroundImage = `linear-gradient(rgba(20, 23, 40, .08), rgba(20, 23, 40, .08)), url("${activeBackground.value.source}")`
+  }
+  return style
+})
+
+const previewCharacterStyle = computed(() => {
+  const x = Math.min(100, Math.max(0, Number(avatarPositionX.value) || 0))
+  const y = Math.min(100, Math.max(0, Number(avatarPositionY.value) || 0))
+  const scale = Math.min(200, Math.max(20, Number(avatarScale.value) || 100))
+  return {
+    left: `${x}%`,
+    top: `${y}%`,
+    transform: `translate(-50%, -50%) scale(${scale / 100})`,
+  }
+})
 
 const characterOptions = computed(() => {
   const rows = moduleData.digitalHumans.rows
@@ -69,6 +102,45 @@ const detailNav = [
 ]
 
 const motions = ['自然待机', '挥手问候', '右手指引', '双手展示', '点赞互动']
+
+function startAvatarDrag(event) {
+  const stage = previewStageRef.value
+  if (!stage) return
+  const rect = stage.getBoundingClientRect()
+  avatarDragState = {
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startX: Number(avatarPositionX.value) || 0,
+    startY: Number(avatarPositionY.value) || 0,
+    width: Math.max(1, rect.width),
+    height: Math.max(1, rect.height),
+  }
+  isAvatarDragging.value = true
+  window.addEventListener('pointermove', moveAvatar)
+  window.addEventListener('pointerup', stopAvatarDrag)
+  window.addEventListener('pointercancel', stopAvatarDrag)
+}
+
+function moveAvatar(event) {
+  if (!avatarDragState) return
+  const deltaX = ((event.clientX - avatarDragState.startClientX) / avatarDragState.width) * 100
+  const deltaY = ((event.clientY - avatarDragState.startClientY) / avatarDragState.height) * 100
+  avatarPositionX.value = Math.round(Math.min(100, Math.max(0, avatarDragState.startX + deltaX)) * 10) / 10
+  avatarPositionY.value = Math.round(Math.min(100, Math.max(0, avatarDragState.startY + deltaY)) * 10) / 10
+}
+
+function stopAvatarDrag() {
+  avatarDragState = null
+  isAvatarDragging.value = false
+  window.removeEventListener('pointermove', moveAvatar)
+  window.removeEventListener('pointerup', stopAvatarDrag)
+  window.removeEventListener('pointercancel', stopAvatarDrag)
+}
+
+function resizeAvatarByWheel(event) {
+  const nextScale = Number(avatarScale.value) + (event.deltaY < 0 ? 5 : -5)
+  avatarScale.value = Math.min(200, Math.max(20, nextScale))
+}
 
 function selectCharacter(item) {
   selectedCharacter.value = item.name
@@ -91,6 +163,14 @@ function handleSectionClick(item) {
 }
 
 function saveSettings() {
+  if (activeSection.value === '形象设置') {
+    avatarPositionX.value = Math.min(100, Math.max(0, Number(avatarPositionX.value) || 0))
+    avatarPositionY.value = Math.min(100, Math.max(0, Number(avatarPositionY.value) || 0))
+    avatarScale.value = Math.min(200, Math.max(20, Number(avatarScale.value) || 100))
+    currentHuman.value.avatarPositionX = avatarPositionX.value
+    currentHuman.value.avatarPositionY = avatarPositionY.value
+    currentHuman.value.avatarScale = avatarScale.value
+  }
   toastMessage.value = `${activeSection.value}已保存`
   toastVisible.value = true
   window.setTimeout(() => { toastVisible.value = false }, 2600)
@@ -162,6 +242,8 @@ function removeBackground(item) {
   backgroundItems.value = backgroundItems.value.filter((background) => background.id !== item.id)
   if (activeBackgroundId.value === item.id) selectBackground(backgroundItems.value[0])
 }
+
+onBeforeUnmount(stopAvatarDrag)
 </script>
 
 <template>
@@ -208,6 +290,7 @@ function removeBackground(item) {
 
       <main v-if="activeSection === '形象设置'" class="detail-preview-column">
         <section
+          ref="previewStageRef"
           class="detail-preview-stage"
           :class="{ 'transparent-preview-stage': activeBackground?.type === '透明背景', 'custom-image-preview-stage': activeBackground?.type === '图片背景' }"
           :style="previewBackgroundStyle"
@@ -215,7 +298,17 @@ function removeBackground(item) {
           <video v-if="activeBackground?.type === '视频背景'" class="preview-background-media" :src="activeBackground.source" autoplay muted loop playsinline></video>
           <iframe v-else-if="activeBackground?.type === '网页背景'" class="preview-background-media" :src="activeBackground.source" title="网页背景预览" tabindex="-1"></iframe>
           <span class="preview-stage-badge"><i></i>实时预览</span>
-          <img class="preview-character-image" :src="selectedPreview" :alt="`${currentHuman.name}${selectedCharacter}形象`" />
+          <img
+            class="preview-character-image"
+            :class="{ dragging: isAvatarDragging }"
+            :src="selectedPreview"
+            :alt="`${currentHuman.name}${selectedCharacter}形象`"
+            :style="previewCharacterStyle"
+            title="拖动调整位置，滚轮缩放"
+            draggable="false"
+            @pointerdown.stop.prevent="startAvatarDrag"
+            @wheel.stop.prevent="resizeAvatarByWheel"
+          />
           <div class="preview-stage-info">
             <span>{{ selectedCharacter }}</span>
             <small>{{ outputResolution }}</small>
@@ -273,13 +366,21 @@ function removeBackground(item) {
         </div>
 
         <div v-else class="settings-tab-content settings-form-content">
-          <div class="settings-section-title"><strong>输出设置</strong><span>配置画面比例与背景</span></div>
-          <label>画面比例</label>
-          <div class="detail-resolution-options">
-            <button v-for="resolution in ['16:9', '9:16']" :key="resolution" :class="{ active: outputResolution === resolution }" @click="outputResolution = resolution">
-              <span :class="resolution === '16:9' ? 'landscape' : 'portrait'"></span>{{ resolution }}
-            </button>
+          <div class="settings-section-title"><strong>输出设置</strong><span>配置屏幕与数字人画面参数</span></div>
+          <label>屏幕分辨率</label>
+          <div class="output-resolution-display">
+            <span><AppIcon name="video" :size="18" /></span>
+            <div><strong>{{ outputResolution }}</strong><small>应用创建时设置的画布分辨率</small></div>
           </div>
+          <label>数字人位置</label>
+          <div class="output-position-grid">
+            <label class="output-position-field" for="avatar-position-x"><span>X</span><input id="avatar-position-x" v-model.number="avatarPositionX" type="number" min="0" max="100" step="1" /><small>%</small></label>
+            <label class="output-position-field" for="avatar-position-y"><span>Y</span><input id="avatar-position-y" v-model.number="avatarPositionY" type="number" min="0" max="100" step="1" /><small>%</small></label>
+          </div>
+          <label for="avatar-scale">缩放比例 <span>{{ avatarScale }}%</span></label>
+          <input id="avatar-scale" v-model.number="avatarScale" type="range" min="20" max="200" step="1" />
+          <div class="output-scale-hint"><span>20%</span><strong>{{ avatarScale }}%</strong><span>200%</span></div>
+          <div class="output-settings-divider"><strong>背景管理</strong><span>配置画布背景内容</span></div>
           <label for="background-mode">背景模式</label>
           <select id="background-mode" v-model="backgroundMode">
             <option>透明背景</option>

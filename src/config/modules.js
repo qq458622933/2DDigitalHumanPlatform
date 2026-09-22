@@ -67,10 +67,10 @@ export const moduleData = {
     ],
     columns: ['数字人名称', '形象类型', '绑定智能体'],
     rows: [
-      { name: '小雅', subtitle: '品牌讲解员', type: '2D在线版', extra: '售前咨询助手', description: '专注企业品牌介绍与产品功能讲解。', createdAt: '2026-08-01 14:26', appCode: 'APP-X7K2-9QMP', resolution: '9:16', preview: presenterFemale, isTemplate: true, tone: 'violet' },
-      { name: '林夕', subtitle: '直播推荐官', type: '2D在线版', extra: '直播运营助手', description: '用于直播间产品推荐与活动信息播报。', createdAt: '2026-07-28 09:42', appCode: 'APP-B4NT-6LQ8', resolution: '9:16', preview: presenterCreative, isTemplate: true, tone: 'pink' },
-      { name: '安安', subtitle: '智能客服', type: '2D本地版', extra: '客服接待助手', description: '提供业务咨询、问题解答和服务引导。', createdAt: '2026-07-25 16:08', appCode: 'APP-M3CA-8VPR', resolution: '16:9', preview: presenterFemale, isTemplate: true, tone: 'cyan' },
-      { name: '陈老师', subtitle: '课程导师', type: '2D本地版', extra: '课程答疑助手', description: '适用于在线课程讲授和知识内容演示。', createdAt: '2026-07-22 11:30', appCode: 'APP-T9HW-2DF5', resolution: '16:9', preview: instructorMale, isTemplate: true, tone: 'orange' },
+      { name: '小雅', subtitle: '品牌讲解员', type: '2D在线版', extra: '售前咨询助手', description: '专注企业品牌介绍与产品功能讲解。', createdAt: '2026-08-01 14:26', appCode: 'APP-X7K2-9QMP', resolution: '1920*1080', preview: presenterFemale, isTemplate: true, tone: 'violet' },
+      { name: '林夕', subtitle: '直播推荐官', type: '2D在线版', extra: '直播运营助手', description: '用于直播间产品推荐与活动信息播报。', createdAt: '2026-07-28 09:42', appCode: 'APP-B4NT-6LQ8', resolution: '1920*1080', preview: presenterCreative, isTemplate: true, tone: 'pink' },
+      { name: '安安', subtitle: '智能客服', type: '2D本地版', extra: '客服接待助手', description: '提供业务咨询、问题解答和服务引导。', createdAt: '2026-07-25 16:08', appCode: 'APP-M3CA-8VPR', resolution: '1920*1080', preview: presenterFemale, isTemplate: true, tone: 'cyan' },
+      { name: '陈老师', subtitle: '课程导师', type: '2D本地版', extra: '课程答疑助手', description: '适用于在线课程讲授和知识内容演示。', createdAt: '2026-07-22 11:30', appCode: 'APP-T9HW-2DF5', resolution: '1920*1080', preview: instructorMale, isTemplate: true, tone: 'orange' },
     ],
   },
   knowledge: {

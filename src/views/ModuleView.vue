@@ -29,6 +29,9 @@ const digitalHumanDescription = ref('')
 const agentDescription = ref('')
 const associatedAgent = ref('')
 const videoResolution = ref('')
+const resolutionType = ref('landscape')
+const customResolutionWidth = ref(1920)
+const customResolutionHeight = ref(1080)
 const digitalHumanServerAddress = ref('')
 const videoFile = ref(null)
 const videoInput = ref(null)
@@ -299,6 +302,11 @@ watch(digitalHumanEditionMode, (type) => {
   }
 })
 
+watch([customResolutionWidth, customResolutionHeight], ([width, height]) => {
+  if (resolutionType.value !== 'custom') return
+  videoResolution.value = Number(width) > 0 && Number(height) > 0 ? `${Number(width)}*${Number(height)}` : ''
+})
+
 watch(digitalHumanTotalPages, (totalPages) => {
   if (digitalHumanPage.value > totalPages) digitalHumanPage.value = totalPages
 })
@@ -328,6 +336,40 @@ watch(() => route.fullPath, () => {
   modalOpen.value = true
   router.replace({ name: 'training' })
 }, { immediate: true })
+
+function changeResolutionType(type) {
+  resolutionType.value = type
+  if (type === 'landscape') videoResolution.value = '1920*1080'
+  else if (type === 'portrait') videoResolution.value = '1080*1920'
+  else videoResolution.value = `${Number(customResolutionWidth.value) || 1920}*${Number(customResolutionHeight.value) || 1080}`
+}
+
+function applyDigitalHumanResolution(resolution, savedType = '') {
+  const normalizedResolution = String(resolution || '').replace(/[x×]/gi, '*')
+  if (savedType === 'portrait' || ['9:16', '1080*1920', '2160*3840'].includes(normalizedResolution)) {
+    resolutionType.value = 'portrait'
+    videoResolution.value = normalizedResolution === '9:16' ? '1080*1920' : normalizedResolution
+    return
+  }
+  if (savedType === 'custom') {
+    const [width, height] = normalizedResolution.split('*').map(Number)
+    resolutionType.value = 'custom'
+    customResolutionWidth.value = width || 1920
+    customResolutionHeight.value = height || 1080
+    videoResolution.value = `${customResolutionWidth.value}*${customResolutionHeight.value}`
+    return
+  }
+  if (!savedType && /^\d+\*\d+$/.test(normalizedResolution) && !['1920*1080', '3840*2160'].includes(normalizedResolution)) {
+    const [width, height] = normalizedResolution.split('*').map(Number)
+    resolutionType.value = 'custom'
+    customResolutionWidth.value = width
+    customResolutionHeight.value = height
+    videoResolution.value = normalizedResolution
+    return
+  }
+  resolutionType.value = 'landscape'
+  videoResolution.value = normalizedResolution === '3840*2160' ? normalizedResolution : '1920*1080'
+}
 
 function openModal() {
   if (route.meta.moduleKey === 'knowledge') {
@@ -360,7 +402,10 @@ function openModal() {
     digitalHumanEdition.value = digitalHumanEditions.value.includes('2D在线版')
       ? '2D在线版'
       : digitalHumanEditions.value.find((edition) => getEditionMode(edition) === 'online') || digitalHumanEditions.value[0] || ''
-    videoResolution.value = '16:9'
+    resolutionType.value = 'landscape'
+    videoResolution.value = '1920*1080'
+    customResolutionWidth.value = 1920
+    customResolutionHeight.value = 1080
     digitalHumanServerAddress.value = ''
   }
   if (route.meta.moduleKey === 'assets' && activeAssetCategory.value === '形象管理') {
@@ -400,6 +445,9 @@ function closeModal() {
   agentDescription.value = ''
   associatedAgent.value = ''
   videoResolution.value = ''
+  resolutionType.value = 'landscape'
+  customResolutionWidth.value = 1920
+  customResolutionHeight.value = 1080
   digitalHumanServerAddress.value = ''
   editingDigitalHumanCode.value = ''
   editingAgentId.value = ''
@@ -1063,6 +1111,7 @@ function submitCreate() {
           description: digitalHumanDescription.value,
           extra: associatedAgent.value,
           resolution: videoResolution.value,
+          resolutionType: resolutionType.value,
           serverAddress: editionMode === 'local' ? digitalHumanServerAddress.value.trim() : '',
         }
       }
@@ -1094,6 +1143,7 @@ function submitCreate() {
         createdAt,
         appCode: generateAppCode(),
         resolution: videoResolution.value,
+        resolutionType: resolutionType.value,
         serverAddress: editionMode === 'local' ? digitalHumanServerAddress.value.trim() : '',
         preview: editionMode === 'online' ? moduleData.digitalHumans.rows[0].preview : moduleData.digitalHumans.rows[2].preview,
         isTemplate: false,
@@ -1127,7 +1177,7 @@ function openDigitalHumanSettings(row) {
     : digitalHumanEditions.value.find((edition) => getEditionMode(edition) === rowEditionMode) || digitalHumanEditions.value[0] || ''
   digitalHumanDescription.value = row.description
   associatedAgent.value = row.extra
-  videoResolution.value = row.resolution
+  applyDigitalHumanResolution(row.resolution, row.resolutionType)
   digitalHumanServerAddress.value = rowEditionMode === 'local' ? row.serverAddress || '127.0.0.1' : ''
   modalOpen.value = true
 }
@@ -1982,20 +2032,47 @@ function getEditionMode(editionName) {
               </div>
 
               <fieldset class="resolution-fieldset">
-                <legend>分辨率设置</legend>
-                <div class="resolution-options">
-                  <label :class="{ selected: videoResolution === '16:9' }">
-                    <input v-model="videoResolution" type="radio" name="video-resolution" value="16:9" required />
+                <legend>详细分辨率设置</legend>
+                <div class="resolution-options resolution-type-options" role="radiogroup" aria-label="分辨率类型">
+                  <label :class="{ selected: resolutionType === 'landscape' }">
+                    <input v-model="resolutionType" type="radio" name="resolution-type" value="landscape" required @change="changeResolutionType('landscape')" />
                     <span class="resolution-shape landscape"></span>
-                    <span class="resolution-copy"><strong>16:9</strong><small>横屏</small></span>
+                    <span class="resolution-copy"><strong>横屏</strong><small>16:9 横向画面</small></span>
                     <span class="resolution-radio"></span>
                   </label>
-                  <label :class="{ selected: videoResolution === '9:16' }">
-                    <input v-model="videoResolution" type="radio" name="video-resolution" value="9:16" required />
+                  <label :class="{ selected: resolutionType === 'portrait' }">
+                    <input v-model="resolutionType" type="radio" name="resolution-type" value="portrait" required @change="changeResolutionType('portrait')" />
                     <span class="resolution-shape portrait"></span>
-                    <span class="resolution-copy"><strong>9:16</strong><small>竖屏</small></span>
+                    <span class="resolution-copy"><strong>竖屏</strong><small>9:16 竖向画面</small></span>
                     <span class="resolution-radio"></span>
                   </label>
+                  <label :class="{ selected: resolutionType === 'custom' }">
+                    <input v-model="resolutionType" type="radio" name="resolution-type" value="custom" required @change="changeResolutionType('custom')" />
+                    <span class="resolution-shape custom"></span>
+                    <span class="resolution-copy"><strong>自定义</strong><small>自行输入宽和高</small></span>
+                    <span class="resolution-radio"></span>
+                  </label>
+                </div>
+
+                <div v-if="resolutionType !== 'custom'" class="resolution-preset-panel">
+                  <div class="resolution-section-heading"><strong>选择具体分辨率</strong><span>{{ resolutionType === 'landscape' ? '横屏规格' : '竖屏规格' }}</span></div>
+                  <div class="resolution-preset-options">
+                    <label v-for="option in (resolutionType === 'landscape' ? ['1920*1080', '3840*2160'] : ['1080*1920', '2160*3840'])" :key="option" :class="{ selected: videoResolution === option }">
+                      <input v-model="videoResolution" type="radio" name="video-resolution" :value="option" required />
+                      <span><strong>{{ option.replace('*', ' × ') }}</strong><small>{{ option.startsWith('3840') || option.startsWith('2160') ? '4K 超高清' : 'Full HD 高清' }}</small></span>
+                      <AppIcon v-if="videoResolution === option" name="check" :size="15" />
+                    </label>
+                  </div>
+                </div>
+
+                <div v-else class="custom-resolution-panel">
+                  <div class="resolution-section-heading"><strong>输入自定义分辨率</strong><span>单位：像素 px</span></div>
+                  <div class="custom-resolution-fields">
+                    <label for="custom-resolution-width"><span>宽度</span><input id="custom-resolution-width" v-model.number="customResolutionWidth" type="number" min="1" step="1" required placeholder="例如 1920" /><small>px</small></label>
+                    <em>×</em>
+                    <label for="custom-resolution-height"><span>高度</span><input id="custom-resolution-height" v-model.number="customResolutionHeight" type="number" min="1" step="1" required placeholder="例如 1080" /><small>px</small></label>
+                  </div>
+                  <div class="custom-resolution-preview"><AppIcon name="video" :size="15" />当前分辨率：<strong>{{ customResolutionWidth || 0 }} × {{ customResolutionHeight || 0 }}</strong> px</div>
                 </div>
               </fieldset>
             </template>

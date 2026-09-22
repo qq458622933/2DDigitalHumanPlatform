@@ -124,10 +124,15 @@ const qnaInfoModalOpen = ref(false)
 const qnaQuestion = ref(String(route.query.question || ''))
 const initialSimilarQuestions = String(route.query.similarQuestions || '').split('\n').map((item) => item.trim()).filter(Boolean)
 const qnaSimilarQuestions = ref(initialSimilarQuestions.length ? initialSimilarQuestions : [''])
+const narrationPreviewLoading = ref(false)
+const narrationPreviewOpen = ref(false)
+const narrationPreviewMode = ref('single')
+const narrationPreviewPageIndex = ref(0)
 let dragState = null
 let subtitleDragState = null
 let popupComponentDragState = null
 let toastTimer = null
+let narrationPreviewTimer = null
 let narrationTagSequence = 0
 let savedNarrationRange = null
 
@@ -259,9 +264,8 @@ function showToast(message) {
   toastTimer = setTimeout(() => { toastVisible.value = false }, 1800)
 }
 
-async function previewAllPages() {
-  if (pages.value.length && activePageId.value !== pages.value[0].id) await switchPage(pages.value[0].id)
-  showToast(`开始按顺序预览全部 ${pages.value.length} 个页面`)
+function previewAllPages() {
+  startNarrationPreview('all')
 }
 
 function addPage() {
@@ -699,6 +703,32 @@ function saveEditor() {
   showToast('实时编辑内容已保存')
 }
 
+function startNarrationPreview(mode = 'single') {
+  const previewMode = mode === 'all' ? 'all' : 'single'
+  syncNarrationEditor()
+  clearTimeout(narrationPreviewTimer)
+  narrationPreviewMode.value = previewMode
+  narrationPreviewPageIndex.value = previewMode === 'all' ? 0 : Math.max(0, pages.value.findIndex((page) => page.id === activePageId.value))
+  narrationPreviewOpen.value = false
+  narrationPreviewLoading.value = true
+  narrationPreviewTimer = window.setTimeout(async () => {
+    if (previewMode === 'all' && pages.value[0] && activePageId.value !== pages.value[0].id) await switchPage(pages.value[0].id)
+    narrationPreviewLoading.value = false
+    narrationPreviewOpen.value = true
+  }, 3000)
+}
+
+async function changeNarrationPreviewPage(step) {
+  const nextIndex = narrationPreviewPageIndex.value + step
+  if (nextIndex < 0 || nextIndex >= pages.value.length) return
+  narrationPreviewPageIndex.value = nextIndex
+  await switchPage(pages.value[nextIndex].id)
+}
+
+function closeNarrationPreview() {
+  narrationPreviewOpen.value = false
+}
+
 function addQnaSimilarQuestion() {
   qnaSimilarQuestions.value.push('')
 }
@@ -1015,6 +1045,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointermove', movePopupComponent)
   canvasResizeObserver?.disconnect()
   clearTimeout(toastTimer)
+  clearTimeout(narrationPreviewTimer)
   externalScreenObjectUrls.forEach((url) => URL.revokeObjectURL(url))
 })
 </script>
@@ -1179,7 +1210,7 @@ onBeforeUnmount(() => {
             @click="handleNarrationEditorClick"
           ></div>
           <div class="narration-editor-footer">
-            <button type="button" @click="showToast('开始预览当前解说词')"><AppIcon name="video" :size="14" />预览解说词</button>
+            <button type="button" @click="startNarrationPreview()"><AppIcon name="video" :size="14" />预览解说词</button>
           </div>
         </section>
       </main>
@@ -1415,6 +1446,59 @@ onBeforeUnmount(() => {
 
       </aside>
     </div>
+
+    <Transition name="fade">
+      <div v-if="narrationPreviewLoading" class="narration-preview-loading" role="status" aria-live="polite">
+        <div class="narration-preview-loading-card">
+          <span class="narration-preview-spinner"></span>
+          <strong>{{ narrationPreviewMode === 'all' ? '正在生成全部页面预览' : '正在生成解说词预览' }}</strong>
+          <small>{{ narrationPreviewMode === 'all' ? `正在加载 ${pages.length} 个数字人页面，请稍候...` : '正在加载当前数字人画布，请稍候...' }}</small>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="fade">
+      <div v-if="narrationPreviewOpen" class="narration-preview-backdrop" @click.self="closeNarrationPreview">
+        <section class="narration-preview-modal" role="dialog" aria-modal="true" aria-label="解说词画布预览">
+          <header class="narration-preview-header">
+            <div><span><AppIcon name="video" :size="18" /></span><div><strong>{{ narrationPreviewMode === 'all' ? '全部页面预览' : '解说词画布预览' }}</strong><small>{{ activePage.name }} · {{ canvasWidth }} × {{ canvasHeight }}<template v-if="narrationPreviewMode === 'all'"> · 第 {{ narrationPreviewPageIndex + 1 }} / {{ pages.length }} 页</template></small></div></div>
+            <button type="button" aria-label="关闭预览" @click="closeNarrationPreview"><AppIcon name="close" :size="19" /></button>
+          </header>
+          <div class="narration-preview-stage">
+            <div class="narration-preview-canvas" :style="{ backgroundImage: `url(${backgroundPreview})`, aspectRatio: `${canvasWidth} / ${canvasHeight}`, '--preview-aspect': canvasWidth / canvasHeight }">
+              <div v-if="!pageContentHidden && externalScreenType === 'link' && externalScreenUrl" class="narration-preview-background">
+                <iframe :src="externalScreenUrl" title="外部大屏网页预览" loading="lazy"></iframe>
+              </div>
+              <div v-else-if="!pageContentHidden && externalScreenType === 'image' && externalScreenFileUrl" class="narration-preview-background">
+                <img :src="externalScreenFileUrl" alt="外部大屏图片背景" />
+              </div>
+              <div v-else-if="!pageContentHidden && externalScreenType === 'video' && externalScreenFileUrl" class="narration-preview-background">
+                <video :src="externalScreenFileUrl" autoplay muted loop playsinline></video>
+              </div>
+              <div class="narration-preview-avatar" :style="{ left: `${selectedWalkingTag ? walkingPreviewX : avatarX}%`, top: `${avatarY}%`, width: `${avatarScale}%`, opacity: avatarOpacity / 100, transform: `translate(-50%, -50%) rotate(${avatarRotation}deg)` }">
+                <img :src="selectedActionTag?.preview || silentAvatarPreview" :alt="`${linkedDigitalHuman.name}数字人预览`" />
+              </div>
+              <div v-if="subtitleEnabled && !subtitleHidden" class="editor-subtitle-layer narration-preview-subtitle" :class="[subtitleStyle, subtitlePosition]" :style="{ left: `${subtitleX}%`, top: `${subtitleY}%`, color: subtitleColor, fontSize: `${subtitleSize}px` }">
+                <p>{{ activePage.narration || '请输入字幕内容' }}</p>
+              </div>
+              <div v-if="selectedPopupTag" class="editor-popup-component narration-preview-popup" :class="popupComponentPosition" :style="{ left: `${popupComponentX}%`, top: `${popupComponentY}%`, width: `${popupComponentDisplaySize}%`, aspectRatio: popupComponentAspectRatio }">
+                <header><span><AppIcon name="layers" :size="12" />弹窗内容</span><AppIcon name="close" :size="12" /></header>
+                <div><AppIcon name="message" :size="24" /><strong>{{ selectedPopupTag.detail }}</strong><small>当前解说词关联内容</small></div>
+              </div>
+            </div>
+          </div>
+          <footer class="narration-preview-footer">
+            <span><i></i>{{ narrationPreviewMode === 'all' ? `正在预览全部 ${pages.length} 个页面` : '正在预览当前解说词画面' }}</span>
+            <div v-if="narrationPreviewMode === 'all'" class="narration-preview-pagination">
+              <button type="button" :disabled="narrationPreviewPageIndex === 0" @click="changeNarrationPreviewPage(-1)"><AppIcon name="chevron" :size="14" />上一页</button>
+              <strong>{{ narrationPreviewPageIndex + 1 }} / {{ pages.length }}</strong>
+              <button type="button" :disabled="narrationPreviewPageIndex === pages.length - 1" @click="changeNarrationPreviewPage(1)">下一页<AppIcon name="chevron" :size="14" /></button>
+            </div>
+            <button type="button" class="narration-preview-close-button" @click="closeNarrationPreview">关闭预览</button>
+          </footer>
+        </section>
+      </div>
+    </Transition>
 
     <Transition name="fade">
       <div v-if="qnaInfoModalOpen" class="editor-config-modal-backdrop" @click.self="qnaInfoModalOpen = false">
@@ -1786,6 +1870,22 @@ onBeforeUnmount(() => {
 .qna-similar-item { display: grid; grid-template-columns: minmax(0,1fr) 36px; gap: 7px; }
 .qna-similar-item > button { display: grid; place-items: center; color: #a2a6b5; border: 1px solid #e2e4eb; border-radius: 8px; background: #fff; }
 .qna-similar-item > button:hover { color: #db6572; border-color: #efc7cc; background: #fff7f8; }
+.narration-preview-loading, .narration-preview-backdrop { position: fixed; inset: 0; z-index: 320; display: grid; place-items: center; padding: 20px; background: rgba(20,24,39,.68); backdrop-filter: blur(5px); }
+.narration-preview-loading-card { display: grid; place-items: center; min-width: 280px; padding: 34px 38px; color: #35394c; border: 1px solid rgba(255,255,255,.7); border-radius: 17px; background: rgba(255,255,255,.97); box-shadow: 0 24px 70px rgba(13,17,30,.3); }
+.narration-preview-loading-card strong { margin-top: 17px; font-size: 14px; }.narration-preview-loading-card small { margin-top: 7px; color: #9498a8; font-size: 9px; }
+.narration-preview-spinner { width: 46px; height: 46px; border: 4px solid #e6e2fa; border-top-color: #6a5bc6; border-radius: 50%; animation: narration-preview-spin .8s linear infinite; }
+@keyframes narration-preview-spin { to { transform: rotate(360deg); } }
+.narration-preview-modal { width: min(1380px,calc(100vw - 48px)); max-height: calc(100vh - 40px); overflow: hidden; border: 1px solid rgba(255,255,255,.7); border-radius: 18px; background: #fff; box-shadow: 0 28px 90px rgba(10,14,27,.36); }
+.narration-preview-header, .narration-preview-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.narration-preview-header { min-height: 68px; padding: 12px 18px; border-bottom: 1px solid #e8e9ef; }.narration-preview-header > div { display: flex; align-items: center; gap: 11px; }.narration-preview-header > div > span { display: grid; place-items: center; width: 38px; height: 38px; color: #6859c2; border-radius: 10px; background: #eeeaff; }.narration-preview-header > div > div { display: grid; gap: 4px; }.narration-preview-header strong { color: #303447; font-size: 14px; }.narration-preview-header small { color: #969aa9; font-size: 9px; }.narration-preview-header > button { display: grid; place-items: center; width: 34px; height: 34px; color: #888d9d; border-radius: 9px; background: #f2f3f6; }
+.narration-preview-stage { display: grid; place-items: center; min-height: 480px; max-height: calc(100vh - 170px); padding: 18px; overflow: auto; background: #171b27; }
+.narration-preview-canvas { position: relative; width: min(100%,1280px); max-height: calc(100vh - 210px); overflow: hidden; border-radius: 8px; background-color: #214c80; background-position: center; background-size: cover; box-shadow: 0 18px 55px rgba(0,0,0,.36); }
+.narration-preview-background { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: #111522; }.narration-preview-background iframe, .narration-preview-background img, .narration-preview-background video { display: block; width: 100%; height: 100%; border: 0; object-fit: contain; background: #111522; }
+.narration-preview-avatar { position: absolute; z-index: 3; aspect-ratio: 9 / 16; pointer-events: none; }.narration-preview-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.narration-preview-subtitle, .narration-preview-popup { cursor: default; pointer-events: none; }
+.narration-preview-footer { min-height: 58px; padding: 10px 18px; border-top: 1px solid #e8e9ef; }.narration-preview-footer > span { display: inline-flex; align-items: center; gap: 7px; color: #777b8c; font-size: 9px; }.narration-preview-footer > span i { width: 7px; height: 7px; border-radius: 50%; background: #45b983; box-shadow: 0 0 0 4px rgba(69,185,131,.13); }
+.narration-preview-close-button { min-width: 90px; min-height: 36px; color: #fff; border-radius: 8px; background: linear-gradient(135deg,#7768d6,#5f51bc); font-size: 9px; font-weight: 600; }
+.narration-preview-pagination { display: flex; align-items: center; gap: 9px; }.narration-preview-pagination strong { min-width: 48px; color: #55596d; font-size: 9px; text-align: center; }.narration-preview-pagination button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 74px; min-height: 34px; color: #6759bd; border: 1px solid #d9d4f1; border-radius: 8px; background: #f7f5ff; font-size: 9px; }.narration-preview-pagination button:first-child .app-icon { transform: rotate(180deg); }.narration-preview-pagination button:disabled { color: #b3b5c0; border-color: #e5e6eb; background: #f7f7f9; cursor: not-allowed; }
 .pause-config-modal { width: min(440px,100%); }
 .pause-config-icon { color: #c58b31; background: #fff5d9; }
 .pause-duration-field { position: relative; margin-bottom: 7px; }
