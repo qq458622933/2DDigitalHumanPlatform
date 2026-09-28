@@ -27,6 +27,7 @@ const speechRate = ref(1)
 const outputResolution = ref(currentHuman.value.resolution || '1920*1080')
 const avatarPositionX = ref(currentHuman.value.avatarPositionX ?? 50)
 const avatarPositionY = ref(currentHuman.value.avatarPositionY ?? 50)
+const avatarPositionUnit = ref(currentHuman.value.avatarPositionUnit || 'percent')
 const avatarScale = ref(currentHuman.value.avatarScale ?? 100)
 const previewStageRef = ref(null)
 const isAvatarDragging = ref(false)
@@ -73,8 +74,13 @@ const previewBackgroundStyle = computed(() => {
 })
 
 const previewCharacterStyle = computed(() => {
-  const x = Math.min(100, Math.max(0, Number(avatarPositionX.value) || 0))
-  const y = Math.min(100, Math.max(0, Number(avatarPositionY.value) || 0))
+  const { width, height } = parsedOutputResolution.value
+  const x = avatarPositionUnit.value === 'px'
+    ? (Math.min(width, Math.max(0, Number(avatarPositionX.value) || 0)) / width) * 100
+    : Math.min(100, Math.max(0, Number(avatarPositionX.value) || 0))
+  const y = avatarPositionUnit.value === 'px'
+    ? (Math.min(height, Math.max(0, Number(avatarPositionY.value) || 0)) / height) * 100
+    : Math.min(100, Math.max(0, Number(avatarPositionY.value) || 0))
   const scale = Math.min(200, Math.max(20, Number(avatarScale.value) || 100))
   return {
     left: `${x}%`,
@@ -82,6 +88,12 @@ const previewCharacterStyle = computed(() => {
     transform: `translate(-50%, -50%) scale(${scale / 100})`,
   }
 })
+
+const avatarPositionMax = computed(() => (
+  avatarPositionUnit.value === 'px'
+    ? parsedOutputResolution.value
+    : { width: 100, height: 100 }
+))
 
 const characterOptions = computed(() => {
   const rows = moduleData.digitalHumans.rows
@@ -123,10 +135,27 @@ function startAvatarDrag(event) {
 
 function moveAvatar(event) {
   if (!avatarDragState) return
-  const deltaX = ((event.clientX - avatarDragState.startClientX) / avatarDragState.width) * 100
-  const deltaY = ((event.clientY - avatarDragState.startClientY) / avatarDragState.height) * 100
-  avatarPositionX.value = Math.round(Math.min(100, Math.max(0, avatarDragState.startX + deltaX)) * 10) / 10
-  avatarPositionY.value = Math.round(Math.min(100, Math.max(0, avatarDragState.startY + deltaY)) * 10) / 10
+  const { width, height } = avatarPositionMax.value
+  const factorX = avatarPositionUnit.value === 'px' ? parsedOutputResolution.value.width : 100
+  const factorY = avatarPositionUnit.value === 'px' ? parsedOutputResolution.value.height : 100
+  const deltaX = ((event.clientX - avatarDragState.startClientX) / avatarDragState.width) * factorX
+  const deltaY = ((event.clientY - avatarDragState.startClientY) / avatarDragState.height) * factorY
+  const precision = avatarPositionUnit.value === 'px' ? 1 : 10
+  avatarPositionX.value = Math.round(Math.min(width, Math.max(0, avatarDragState.startX + deltaX)) * precision) / precision
+  avatarPositionY.value = Math.round(Math.min(height, Math.max(0, avatarDragState.startY + deltaY)) * precision) / precision
+}
+
+function changeAvatarPositionUnit(unit) {
+  if (unit === avatarPositionUnit.value) return
+  const { width, height } = parsedOutputResolution.value
+  if (unit === 'px') {
+    avatarPositionX.value = Math.round((Number(avatarPositionX.value) || 0) * width / 100)
+    avatarPositionY.value = Math.round((Number(avatarPositionY.value) || 0) * height / 100)
+  } else {
+    avatarPositionX.value = Math.round(((Number(avatarPositionX.value) || 0) / width) * 1000) / 10
+    avatarPositionY.value = Math.round(((Number(avatarPositionY.value) || 0) / height) * 1000) / 10
+  }
+  avatarPositionUnit.value = unit
 }
 
 function stopAvatarDrag() {
@@ -164,11 +193,12 @@ function handleSectionClick(item) {
 
 function saveSettings() {
   if (activeSection.value === '形象设置') {
-    avatarPositionX.value = Math.min(100, Math.max(0, Number(avatarPositionX.value) || 0))
-    avatarPositionY.value = Math.min(100, Math.max(0, Number(avatarPositionY.value) || 0))
+    avatarPositionX.value = Math.min(avatarPositionMax.value.width, Math.max(0, Number(avatarPositionX.value) || 0))
+    avatarPositionY.value = Math.min(avatarPositionMax.value.height, Math.max(0, Number(avatarPositionY.value) || 0))
     avatarScale.value = Math.min(200, Math.max(20, Number(avatarScale.value) || 100))
     currentHuman.value.avatarPositionX = avatarPositionX.value
     currentHuman.value.avatarPositionY = avatarPositionY.value
+    currentHuman.value.avatarPositionUnit = avatarPositionUnit.value
     currentHuman.value.avatarScale = avatarScale.value
   }
   toastMessage.value = `${activeSection.value}已保存`
@@ -371,12 +401,19 @@ onBeforeUnmount(stopAvatarDrag)
           <div class="output-resolution-display">
             <span><AppIcon name="video" :size="18" /></span>
             <div><strong>{{ outputResolution }}</strong><small>应用创建时设置的画布分辨率</small></div>
-          </div>
-          <label>数字人位置</label>
-          <div class="output-position-grid">
-            <label class="output-position-field" for="avatar-position-x"><span>X</span><input id="avatar-position-x" v-model.number="avatarPositionX" type="number" min="0" max="100" step="1" /><small>%</small></label>
-            <label class="output-position-field" for="avatar-position-y"><span>Y</span><input id="avatar-position-y" v-model.number="avatarPositionY" type="number" min="0" max="100" step="1" /><small>%</small></label>
-          </div>
+           </div>
+           <label>数字人位置</label>
+           <div class="position-unit-control">
+             <span>位置单位</span>
+             <select :value="avatarPositionUnit" aria-label="数字人位置单位" @change="changeAvatarPositionUnit($event.target.value)">
+               <option value="percent">百分比</option>
+               <option value="px">px</option>
+             </select>
+           </div>
+           <div class="output-position-grid">
+             <label class="output-position-field" for="avatar-position-x"><span>X</span><input id="avatar-position-x" v-model.number="avatarPositionX" type="number" min="0" :max="avatarPositionMax.width" :step="avatarPositionUnit === 'px' ? 1 : 0.1" /><small>{{ avatarPositionUnit === 'px' ? 'px' : '%' }}</small></label>
+             <label class="output-position-field" for="avatar-position-y"><span>Y</span><input id="avatar-position-y" v-model.number="avatarPositionY" type="number" min="0" :max="avatarPositionMax.height" :step="avatarPositionUnit === 'px' ? 1 : 0.1" /><small>{{ avatarPositionUnit === 'px' ? 'px' : '%' }}</small></label>
+           </div>
           <label for="avatar-scale">缩放比例 <span>{{ avatarScale }}%</span></label>
           <input id="avatar-scale" v-model.number="avatarScale" type="range" min="20" max="200" step="1" />
           <div class="output-scale-hint"><span>20%</span><strong>{{ avatarScale }}%</strong><span>200%</span></div>

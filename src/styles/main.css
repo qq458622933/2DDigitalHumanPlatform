@@ -644,6 +644,9 @@ tbody tr:hover { background: #fcfcff; }
 .output-resolution-display { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid #e1e3e9; border-radius: 9px; background: #fafafd; }
 .output-resolution-display > span { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; color: #6659b7; border-radius: 8px; background: #eeebfc; }.output-resolution-display > div { display: grid; gap: 3px; min-width: 0; }.output-resolution-display strong { color: #45495c; font-size: 11px; }.output-resolution-display small { color: #9b9ead; font-size: 8px; }
 .output-position-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.position-unit-control { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -1px 0 9px; padding: 8px 10px; border: 1px solid #e1e3e9; border-radius: 8px; background: #fafafd; }
+.position-unit-control > span { color: #74788a; font-size: 10px; font-weight: 600; }
+.settings-form-content .position-unit-control select { width: 104px; padding: 6px 9px; border-radius: 6px; background-color: #fff; }
 .settings-form-content .output-position-field { position: relative; display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border: 1px solid #e1e3e9; border-radius: 8px; background: #fafafd; }
 .settings-form-content .output-position-grid .output-position-field { margin: 0; }
 .settings-form-content .output-position-field > span { color: #6659b7; font-size: 11px; font-weight: 700; }.output-position-field input { width: 100%; min-width: 0; padding: 4px 22px 4px 5px; color: #4e5265; border: 0; outline: 0; background: transparent; font-size: 11px; }.output-position-field small { position: absolute; right: 10px; color: #a0a4b2; font-size: 8px; }
