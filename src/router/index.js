@@ -8,10 +8,12 @@ import KnowledgeDetailView from '../views/KnowledgeDetailView.vue'
 import KnowledgeDocumentDetailView from '../views/KnowledgeDocumentDetailView.vue'
 import VersionManagementView from '../views/VersionManagementView.vue'
 import AgentRealtimeEditorView from '../views/AgentRealtimeEditorView.vue'
+import VoiceTrainingView from '../views/VoiceTrainingView.vue'
 
 const routes = [
   { path: '/', redirect: '/training' },
   { path: '/training', name: 'training', component: ModuleView, meta: { moduleKey: 'training' } },
+  { path: '/voice-training', name: 'voiceTraining', component: VoiceTrainingView },
   { path: '/agents', name: 'agents', component: ModuleView, meta: { moduleKey: 'agents' } },
   { path: '/agents/:agentId', name: 'agentDetail', component: AgentDetailView },
   { path: '/agents/:agentId/realtime-editor', name: 'agentRealtimeEditor', component: AgentRealtimeEditorView },

@@ -6,6 +6,7 @@ import backgroundExhibition from '../assets/avatar-previews/background-exhibitio
 
 export const navItems = [
   { key: 'training', label: '形象训练', path: '/training', icon: 'sparkles' },
+  { key: 'voiceTraining', label: '音色训练', path: '/voice-training', icon: 'mic' },
   { key: 'orchestration', label: '动作编排', path: '/orchestration', icon: 'workflow' },
   { key: 'digitalHumans', label: '数字人', path: '/digital-humans', icon: 'video' },
   { key: 'knowledge', label: '知识库', path: '/knowledge', icon: 'book' },

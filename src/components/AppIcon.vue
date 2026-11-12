@@ -29,6 +29,9 @@ defineProps({
     <template v-else-if="name === 'video'">
       <rect x="3" y="5" width="13" height="14" rx="2" /><path d="m16 10 5-3v10l-5-3z" />
     </template>
+    <template v-else-if="name === 'mic'">
+      <rect x="9" y="2" width="6" height="13" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8" />
+    </template>
     <template v-else-if="name === 'book'">
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
     </template>
