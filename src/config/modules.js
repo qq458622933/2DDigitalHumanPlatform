@@ -115,9 +115,11 @@ export const moduleData = {
     ],
     columns: ['资源名称', '资源类型', '资源配置', '创建时间', '状态'],
     rows: [
-      { name: '实时交互ASR资源', subtitle: 'RES-ASR-001', type: '语音识别资源池', extra: '场景：数字人实时交互', date: '2026-08-05 10:26:18', status: '已启用', tone: 'blue', sn: 'ASR-SN-202608001', appId: 'ASR-APP-1028', appKey: 'asr_sk_8Kp3YvN6mQ2xR9tL', scene: '数字人实时交互' },
-      { name: '标准语音合成资源', subtitle: 'RES-TTS-001', type: '语音合成资源池', extra: 'Cluster：volcano_tts', date: '2026-08-03 14:08:32', status: '已启用', tone: 'violet', appId: 'TTS-APP-2086', cluster: 'volcano_tts', accessToken: 'tts_at_7Hx92LmQ4vK8pN3sY6cR' },
-      { name: '本地数字人授权资源', subtitle: 'RES-LICENSE-001', type: '本地数字人授权资源', extra: 'License 已配置', date: '2026-08-01 09:42:17', status: '已启用', tone: 'orange', licenseKey: '*:1787641636:87yt5Md6-p5z0c487dkjGjIz-4kDJ2xrCopn1wYZFF7EoVn5XmL8KtA2xdqQH9rPofkgiteEVwdKt2-GGsHZBw' },
+      { name: '实时交互ASR资源', subtitle: 'RES-ASR-001', type: '语音识别资源池', serviceUrl: 'ws://192.168.10.28:10096', date: '2026-08-05 10:26:18', status: '已启用', isActive: true, tone: 'blue' },
+      { name: '备用ASR资源', subtitle: 'RES-ASR-002', type: '语音识别资源池', serviceUrl: 'ws://192.168.10.29:10096', date: '2026-08-04 16:12:05', status: '已启用', isActive: false, tone: 'blue' },
+      { name: '标准语音合成资源', subtitle: 'RES-TTS-001', type: '语音合成资源池', serviceUrl: 'http://192.168.10.120:19100', date: '2026-08-03 14:08:32', status: '已启用', isActive: true, tone: 'violet' },
+      { name: '备用语音合成资源', subtitle: 'RES-TTS-002', type: '语音合成资源池', serviceUrl: 'http://192.168.10.121:19100', date: '2026-08-02 09:20:15', status: '已启用', isActive: false, tone: 'violet' },
+      { name: '本地数字人授权资源', subtitle: 'RES-LICENSE-001', type: '本地数字人授权资源', extra: 'License 已配置', date: '2026-08-01 09:42:17', status: '已启用', isActive: true, tone: 'orange', licenseKey: '*:1787641636:87yt5Md6-p5z0c487dkjGjIz-4kDJ2xrCopn1wYZFF7EoVn5XmL8KtA2xdqQH9rPofkgiteEVwdKt2-GGsHZBw' },
     ],
   },
   assets: {

@@ -178,6 +178,12 @@ function selectCharacter(item) {
 
 function handleSectionClick(item) {
   if (item === '智能体配置') {
+    if (currentHuman.value.agentAccessMode === 'openapi') {
+      toastMessage.value = '请在关联的第三方智能体后台配置内容'
+      toastVisible.value = true
+      window.setTimeout(() => { toastVisible.value = false }, 3000)
+      return
+    }
     const relatedAgent = moduleData.agents.rows.find((agent) => agent.subtitle === currentHuman.value.linkedAgentId)
       || moduleData.agents.rows.find((agent) => agent.name === currentHuman.value.extra)
       || moduleData.agents.rows[0]

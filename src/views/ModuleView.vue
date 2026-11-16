@@ -3,6 +3,7 @@ import { computed, inject, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import { moduleData } from '../config/modules'
+import { resourcePoolRows } from '../config/resourcePool'
 import { digitalHumanEditions, editionTypeMap } from '../config/digitalHumanVersions'
 
 const route = useRoute()
@@ -33,6 +34,11 @@ const resolutionType = ref('landscape')
 const customResolutionWidth = ref(1920)
 const customResolutionHeight = ref(1080)
 const digitalHumanServerAddress = ref('')
+const agentAccessMode = ref('platform')
+const openApiBaseUrl = ref('')
+const openApiApiKey = ref('')
+const openApiModel = ref('')
+const showOpenApiKey = ref(false)
 const videoFile = ref(null)
 const videoInput = ref(null)
 const trainingPreviewFile = ref(null)
@@ -43,7 +49,7 @@ const agentRows = ref(moduleData.agents.rows.map((row) => ({ ...row })))
 const digitalHumanRows = ref(moduleData.digitalHumans.rows.map((row) => ({ ...row })))
 const knowledgeRows = ref(moduleData.knowledge.rows.map((row) => ({ ...row })))
 const benefitRows = ref(moduleData.benefits.rows.map((row) => ({ ...row })))
-const resourceRows = ref(moduleData.resources.rows.map((row) => ({ ...row })))
+const resourceRows = resourcePoolRows
 const assetRows = ref(moduleData.assets.rows.map((row) => ({ ...row })))
 const editingAssetId = ref('')
 const knowledgeEditOpen = ref(false)
@@ -69,15 +75,8 @@ const benefitUserOptions = [
 const resourceModalOpen = ref(false)
 const resourceType = ref('asr')
 const resourceName = ref('')
-const resourceSn = ref('')
-const resourceAppId = ref('')
-const resourceAppKey = ref('')
-const resourceScene = ref('')
-const resourceCluster = ref('')
-const resourceAccessToken = ref('')
+const resourceServiceUrl = ref('')
 const resourceLicenseKey = ref('')
-const showResourceAppKey = ref(false)
-const showResourceAccessToken = ref(false)
 const editingResourceId = ref('')
 const activeResourceTab = ref('语音识别资源池')
 const resourceTabs = ['语音识别资源池', '语音合成资源池', '本地数字人授权资源']
@@ -114,15 +113,14 @@ const assetPreviewInput = ref(null)
 const assetPreviewUrl = ref('')
 const assetSilentVideoFile = ref(null)
 const assetSilentVideoInput = ref(null)
-const assetVoiceId = ref('')
-const assetVoiceGender = ref('女声')
-const assetVoiceType = ref('标准音色')
-const assetVoicePitch = ref(1)
-const assetVoiceSpeed = ref(1)
-const assetVoiceDescription = ref('')
 const assetAudioFile = ref(null)
 const assetAudioInput = ref(null)
 const assetAudioPreviewUrl = ref('')
+const assetAudioExistingUrl = ref('')
+const assetAudioExistingName = ref('')
+const assetAudioTranscript = ref('')
+const assetVoiceGender = ref('')
+const mockAssetAudioTranscript = '您好，欢迎使用数字人服务。很高兴为您提供帮助。'
 const assetBackgroundType = ref('透明背景')
 const assetBackgroundDescription = ref('')
 const assetBackgroundPreviewFile = ref(null)
@@ -225,6 +223,16 @@ const imagePreviewTitle = ref('')
 const imagePreviewType = ref('avatar')
 
 const current = computed(() => moduleData[route.meta.moduleKey] || moduleData.training)
+const displayStats = computed(() => {
+  if (route.meta.moduleKey !== 'resources') return current.value.stats
+  const rows = resourceRows.value
+  return [
+    { label: '语音识别资源', value: String(rows.filter((row) => row.type === '语音识别资源池').length), change: '可切换使用', icon: 'message' },
+    { label: '语音合成资源', value: String(rows.filter((row) => row.type === '语音合成资源池').length), change: '可切换使用', icon: 'video' },
+    { label: '本地授权资源', value: String(rows.filter((row) => row.type === '本地数字人授权资源').length), change: '可切换使用', icon: 'server' },
+    { label: '当前使用资源', value: String(rows.filter((row) => row.isActive).length), change: '每类最多一个', icon: 'check' },
+  ]
+})
 const primaryActionLabel = computed(() => route.meta.moduleKey === 'assets'
   ? activeAssetCategory.value === '智能体人设模板'
     ? '新增人设模板'
@@ -399,14 +407,19 @@ function openModal() {
     trainingGender.value = ''
   }
   if (route.meta.moduleKey === 'digitalHumans') {
-    digitalHumanEdition.value = digitalHumanEditions.value.includes('2D在线版')
-      ? '2D在线版'
-      : digitalHumanEditions.value.find((edition) => getEditionMode(edition) === 'online') || digitalHumanEditions.value[0] || ''
+    digitalHumanEdition.value = digitalHumanEditions.value.includes('2D本地版')
+      ? '2D本地版'
+      : digitalHumanEditions.value.find((edition) => getEditionMode(edition) === 'local') || '2D本地版'
     resolutionType.value = 'landscape'
     videoResolution.value = '1920*1080'
     customResolutionWidth.value = 1920
     customResolutionHeight.value = 1080
-    digitalHumanServerAddress.value = ''
+    digitalHumanServerAddress.value = '127.0.0.1'
+    agentAccessMode.value = 'platform'
+    openApiBaseUrl.value = ''
+    openApiApiKey.value = ''
+    openApiModel.value = ''
+    showOpenApiKey.value = false
   }
   if (route.meta.moduleKey === 'assets' && activeAssetCategory.value === '形象管理') {
     assetLinkedLipModelId.value = activeAssetEdition.value === '2D本地版' ? defaultAssetLipModel.value?.subtitle || '' : ''
@@ -449,6 +462,11 @@ function closeModal() {
   customResolutionWidth.value = 1920
   customResolutionHeight.value = 1080
   digitalHumanServerAddress.value = ''
+  agentAccessMode.value = 'platform'
+  openApiBaseUrl.value = ''
+  openApiApiKey.value = ''
+  openApiModel.value = ''
+  showOpenApiKey.value = false
   editingDigitalHumanCode.value = ''
   editingAgentId.value = ''
   editingAssetId.value = ''
@@ -485,15 +503,13 @@ function closeModal() {
   if (assetPreviewUrl.value) URL.revokeObjectURL(assetPreviewUrl.value)
   assetPreviewUrl.value = ''
   assetSilentVideoFile.value = null
-  assetVoiceId.value = ''
-  assetVoiceGender.value = '女声'
-  assetVoiceType.value = '标准音色'
-  assetVoicePitch.value = 1
-  assetVoiceSpeed.value = 1
-  assetVoiceDescription.value = ''
   assetAudioFile.value = null
   if (assetAudioPreviewUrl.value) URL.revokeObjectURL(assetAudioPreviewUrl.value)
   assetAudioPreviewUrl.value = ''
+  assetAudioExistingUrl.value = ''
+  assetAudioExistingName.value = ''
+  assetAudioTranscript.value = ''
+  assetVoiceGender.value = ''
   assetBackgroundType.value = '透明背景'
   assetBackgroundDescription.value = ''
   assetBackgroundPreviewFile.value = null
@@ -544,12 +560,16 @@ function handleAssetAudioChange(event) {
   if (assetAudioPreviewUrl.value) URL.revokeObjectURL(assetAudioPreviewUrl.value)
   assetAudioFile.value = file
   assetAudioPreviewUrl.value = file ? URL.createObjectURL(file) : ''
+  assetAudioTranscript.value = file ? mockAssetAudioTranscript : ''
 }
 
 function clearAssetAudio() {
   if (assetAudioPreviewUrl.value) URL.revokeObjectURL(assetAudioPreviewUrl.value)
   assetAudioFile.value = null
   assetAudioPreviewUrl.value = ''
+  assetAudioTranscript.value = assetAudioExistingName.value
+    ? assetRows.value.find((row) => row.subtitle === editingAssetId.value)?.audioTranscript || ''
+    : ''
   if (assetAudioInput.value) assetAudioInput.value.value = ''
 }
 
@@ -664,12 +684,10 @@ function openAssetEditor(row) {
   assetDefaultVoiceId.value = row.defaultVoiceId || assetVoiceOptions.value[0]?.subtitle || ''
   assetLinkedLipModelId.value = row.lipModelId || (row.category === '形象管理' && row.edition === '2D本地版' ? defaultAssetLipModel.value?.subtitle || '' : '')
   assetAvatarDescription.value = row.description || (row.category === '形象管理' ? `${row.name}形象资产` : '')
-  assetVoiceId.value = row.voiceId || (row.category === '音色管理' ? row.subtitle : '')
-  assetVoiceGender.value = row.gender || '女声'
-  assetVoiceType.value = row.voiceType || '标准音色'
-  assetVoicePitch.value = row.pitch ?? 1
-  assetVoiceSpeed.value = row.speed ?? 1
-  assetVoiceDescription.value = row.description || (row.category === '音色管理' ? `${row.name}音色资产` : '')
+  assetAudioExistingUrl.value = row.category === '音色管理' ? row.audioUrl || '' : ''
+  assetAudioExistingName.value = row.category === '音色管理' ? row.audioFileName || '' : ''
+  assetAudioTranscript.value = row.category === '音色管理' ? row.audioTranscript || '' : ''
+  assetVoiceGender.value = row.category === '音色管理' ? row.gender || '' : ''
   assetBackgroundType.value = row.backgroundType || '透明背景'
   assetBackgroundDescription.value = row.description || (row.category === '预设背景管理' ? `${row.name}背景资产` : '')
   assetBackgroundWebUrl.value = row.backgroundWebUrl || ''
@@ -689,6 +707,7 @@ function openAssetEditor(row) {
 function deleteAsset(row) {
   if (!window.confirm(`确定删除资产“${row.name}”吗？删除后无法恢复。`)) return
   if (typeof row.preview === 'string' && row.preview.startsWith('blob:')) URL.revokeObjectURL(row.preview)
+  if (typeof row.audioUrl === 'string' && row.audioUrl.startsWith('blob:')) URL.revokeObjectURL(row.audioUrl)
   if (typeof row.silentVideoUrl === 'string' && row.silentVideoUrl.startsWith('blob:')) URL.revokeObjectURL(row.silentVideoUrl)
   if (typeof row.backgroundPreview === 'string' && row.backgroundPreview.startsWith('blob:')) URL.revokeObjectURL(row.backgroundPreview)
   assetRows.value = assetRows.value.filter((item) => item.subtitle !== row.subtitle)
@@ -755,15 +774,8 @@ function closeResourceModal() {
   editingResourceId.value = ''
   resourceType.value = 'asr'
   resourceName.value = ''
-  resourceSn.value = ''
-  resourceAppId.value = ''
-  resourceAppKey.value = ''
-  resourceScene.value = ''
-  resourceCluster.value = ''
-  resourceAccessToken.value = ''
+  resourceServiceUrl.value = ''
   resourceLicenseKey.value = ''
-  showResourceAppKey.value = false
-  showResourceAccessToken.value = false
 }
 
 function submitResourceCreate() {
@@ -771,19 +783,31 @@ function submitResourceCreate() {
   const createdAt = formatDateTime(new Date())
   let resourcePayload
   if (resourceType.value === 'asr') {
-    resourcePayload = { name: resourceName.value.trim(), subtitle: `RES-ASR-${suffix}`, type: '语音识别资源池', extra: `场景：${resourceScene.value.trim()}`, date: createdAt, status: '已启用', tone: 'blue', sn: resourceSn.value.trim(), appId: resourceAppId.value.trim(), appKey: resourceAppKey.value.trim(), scene: resourceScene.value.trim() }
+    resourcePayload = { name: resourceName.value.trim(), subtitle: `RES-ASR-${suffix}`, type: '语音识别资源池', serviceUrl: resourceServiceUrl.value.trim(), date: createdAt, status: '已启用', tone: 'blue' }
   } else if (resourceType.value === 'tts') {
-    resourcePayload = { name: resourceName.value.trim(), subtitle: `RES-TTS-${suffix}`, type: '语音合成资源池', extra: `Cluster：${resourceCluster.value.trim()}`, date: createdAt, status: '已启用', tone: 'violet', appId: resourceAppId.value.trim(), cluster: resourceCluster.value.trim(), accessToken: resourceAccessToken.value.trim() }
+    resourcePayload = { name: resourceName.value.trim(), subtitle: `RES-TTS-${suffix}`, type: '语音合成资源池', serviceUrl: resourceServiceUrl.value.trim(), date: createdAt, status: '已启用', tone: 'violet' }
   } else {
-    resourcePayload = { name: '本地数字人授权资源', subtitle: `RES-LICENSE-${suffix}`, type: '本地数字人授权资源', extra: 'License 已配置', date: createdAt, status: '已启用', tone: 'orange', licenseKey: resourceLicenseKey.value.trim() }
+    resourcePayload = { name: resourceName.value.trim(), subtitle: `RES-LICENSE-${suffix}`, type: '本地数字人授权资源', extra: 'License 已配置', date: createdAt, status: '已启用', tone: 'orange', licenseKey: resourceLicenseKey.value.trim() }
   }
   const typeLabel = resourceType.value === 'asr' ? '语音识别资源' : resourceType.value === 'tts' ? '语音合成资源' : '本地数字人授权资源'
   const tabLabel = resourcePayload.type
   const wasEditing = Boolean(editingResourceId.value)
   if (wasEditing) {
     const index = resourceRows.value.findIndex((row) => row.subtitle === editingResourceId.value)
-    if (index !== -1) resourceRows.value[index] = { ...resourceRows.value[index], ...resourcePayload, subtitle: resourceRows.value[index].subtitle, date: resourceRows.value[index].date }
+    if (index !== -1) {
+      const previous = resourceRows.value[index]
+      const sameType = previous.type === tabLabel
+      resourcePayload.isActive = sameType
+        ? Boolean(previous.isActive)
+        : !resourceRows.value.some((row, rowIndex) => rowIndex !== index && row.type === tabLabel && row.isActive)
+      resourceRows.value[index] = { ...resourcePayload, subtitle: previous.subtitle, date: previous.date }
+      if (!sameType && previous.isActive) {
+        const fallback = resourceRows.value.find((row) => row.type === previous.type)
+        if (fallback) fallback.isActive = true
+      }
+    }
   } else {
+    resourcePayload.isActive = !resourceRows.value.some((row) => row.type === tabLabel && row.isActive)
     resourceRows.value.unshift(resourcePayload)
   }
   closeResourceModal()
@@ -795,12 +819,7 @@ function openResourceEditor(row) {
   editingResourceId.value = row.subtitle
   resourceType.value = row.type === '语音识别资源池' ? 'asr' : row.type === '语音合成资源池' ? 'tts' : 'local'
   resourceName.value = row.name || ''
-  resourceSn.value = row.sn || ''
-  resourceAppId.value = row.appId || ''
-  resourceAppKey.value = row.appKey || ''
-  resourceScene.value = row.scene || ''
-  resourceCluster.value = row.cluster || ''
-  resourceAccessToken.value = row.accessToken || ''
+  resourceServiceUrl.value = row.serviceUrl || ''
   resourceLicenseKey.value = row.licenseKey || ''
   resourceModalOpen.value = true
 }
@@ -808,7 +827,18 @@ function openResourceEditor(row) {
 function deleteResource(row) {
   if (!window.confirm(`确定删除资源“${row.name}”吗？`)) return
   resourceRows.value = resourceRows.value.filter((item) => item.subtitle !== row.subtitle)
-  showToast('资源已删除')
+  if (row.isActive) {
+    const fallback = resourceRows.value.find((item) => item.type === row.type)
+    if (fallback) fallback.isActive = true
+  }
+  showToast(row.isActive && resourceRows.value.some((item) => item.type === row.type) ? '资源已删除，同类型另一资源已设为当前使用' : '资源已删除')
+}
+
+function activateResource(row) {
+  resourceRows.value.forEach((item) => {
+    if (item.type === row.type) item.isActive = item.subtitle === row.subtitle
+  })
+  showToast(`“${row.name}”已设为当前使用资源`)
 }
 
 function selectAssetEdition(edition) {
@@ -941,6 +971,12 @@ function submitCreate() {
     if (assetSilentVideoFile.value && typeof existingAsset?.silentVideoUrl === 'string' && existingAsset.silentVideoUrl.startsWith('blob:')) {
       URL.revokeObjectURL(existingAsset.silentVideoUrl)
     }
+    if (assetAudioFile.value && typeof existingAsset?.audioUrl === 'string' && existingAsset.audioUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(existingAsset.audioUrl)
+    }
+    const uploadedAudioUrl = activeAssetCategory.value === '音色管理' && assetAudioFile.value
+      ? URL.createObjectURL(assetAudioFile.value)
+      : ''
     const updatedAsset = {
       ...existingAsset,
       name: activeAssetCategory.value === '动作管理' && assetActionType.value === '通用走动动作'
@@ -989,7 +1025,7 @@ function submitCreate() {
         ? assetAvatarGender.value
         : activeAssetCategory.value === '音色管理'
           ? assetVoiceGender.value
-          : '',
+        : existingAsset?.gender || '',
       defaultVoiceId: activeAssetCategory.value === '形象管理' ? assetDefaultVoiceId.value : '',
       lipModelId: activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D本地版' ? assetLinkedLipModelId.value : '',
       lipModelName: activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D本地版'
@@ -998,7 +1034,7 @@ function submitCreate() {
       description: activeAssetCategory.value === '形象管理'
         ? assetAvatarDescription.value.trim()
         : activeAssetCategory.value === '音色管理'
-          ? assetVoiceDescription.value.trim()
+          ? existingAsset?.description || ''
           : activeAssetCategory.value === '预设背景管理'
             ? assetBackgroundDescription.value.trim()
             : '',
@@ -1012,10 +1048,18 @@ function submitCreate() {
       silentVideoUrl: activeAssetCategory.value === '形象管理' && activeAssetEdition.value === '2D本地版'
         ? assetSilentVideoFile.value ? URL.createObjectURL(assetSilentVideoFile.value) : existingAsset?.silentVideoUrl || ''
         : '',
-      voiceId: activeAssetCategory.value === '音色管理' ? assetVoiceId.value.trim() : '',
-      voiceType: activeAssetCategory.value === '音色管理' ? assetVoiceType.value : '',
-      pitch: activeAssetCategory.value === '音色管理' ? assetVoicePitch.value : null,
-      speed: activeAssetCategory.value === '音色管理' ? assetVoiceSpeed.value : null,
+      voiceId: activeAssetCategory.value === '音色管理'
+        ? existingAsset?.voiceId || existingAsset?.subtitle || ''
+        : '',
+      audioUrl: activeAssetCategory.value === '音色管理'
+        ? uploadedAudioUrl || existingAsset?.audioUrl || ''
+        : '',
+      audioFileName: activeAssetCategory.value === '音色管理'
+        ? assetAudioFile.value?.name || existingAsset?.audioFileName || ''
+        : '',
+      audioTranscript: activeAssetCategory.value === '音色管理'
+        ? assetAudioTranscript.value
+        : '',
       backgroundType: activeAssetCategory.value === '预设背景管理' ? assetBackgroundType.value : '',
       backgroundPreview: activeAssetCategory.value === '预设背景管理' && assetBackgroundPreviewFile.value
         ? URL.createObjectURL(assetBackgroundPreviewFile.value)
@@ -1040,6 +1084,7 @@ function submitCreate() {
       status: '可用',
       tone: activeAssetEdition.value === '2D本地版' ? 'violet' : 'blue',
     }
+    if (activeAssetCategory.value === '音色管理' && !updatedAsset.voiceId) updatedAsset.voiceId = updatedAsset.subtitle
     if (editingIndex >= 0) assetRows.value[editingIndex] = updatedAsset
     else assetRows.value.unshift(updatedAsset)
     const sourceAssetIndex = moduleData.assets.rows.findIndex((row) => row.subtitle === updatedAsset.subtitle)
@@ -1100,28 +1145,17 @@ function submitCreate() {
     const wasEditing = Boolean(editingDigitalHumanCode.value)
     const typeLabel = digitalHumanEdition.value
     const editionMode = digitalHumanEditionMode.value
-    if (wasEditing) {
-      const index = digitalHumanRows.value.findIndex((row) => row.appCode === editingDigitalHumanCode.value)
-      if (index !== -1) {
-        digitalHumanRows.value[index] = {
-          ...digitalHumanRows.value[index],
-          name: projectName.value,
-          type: typeLabel,
-          editionMode,
-          description: digitalHumanDescription.value,
-          extra: associatedAgent.value,
-          resolution: videoResolution.value,
-          resolutionType: resolutionType.value,
-          serverAddress: editionMode === 'local' ? digitalHumanServerAddress.value.trim() : '',
-        }
-      }
-    } else {
-      const agentId = `Agent-${Date.now().toString().slice(-6)}`
-      const agentName = `${projectName.value}智能体`
-      const createdAt = new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-')
-      const newAgent = {
-        name: agentName,
-        subtitle: agentId,
+    const usesOpenApi = agentAccessMode.value === 'openapi'
+    const openApiConfig = usesOpenApi ? {
+      baseUrl: openApiBaseUrl.value.trim(),
+      apiKey: openApiApiKey.value.trim(),
+      model: openApiModel.value.trim(),
+    } : null
+    const createdAt = new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-')
+    const createPlatformAgent = () => {
+      const agent = {
+        name: `${projectName.value}智能体`,
+        subtitle: `Agent-${Date.now().toString().slice(-6)}`,
         type: '数字人专属智能体',
         extra: '暂未关联知识库',
         description: `数字人“${projectName.value}”自动创建的专属智能体`,
@@ -1132,13 +1166,44 @@ function submitCreate() {
         isTemplate: false,
         tone: 'blue',
       }
+      agentRows.value.unshift(agent)
+      moduleData.agents.rows.unshift(agent)
+      return agent
+    }
+    if (wasEditing) {
+      const index = digitalHumanRows.value.findIndex((row) => row.appCode === editingDigitalHumanCode.value)
+      if (index !== -1) {
+        const existingRow = digitalHumanRows.value[index]
+        const linkedAgent = usesOpenApi ? null : (moduleData.agents.rows.find((agent) => agent.subtitle === existingRow.linkedAgentId) || createPlatformAgent())
+        const updatedRow = {
+          ...existingRow,
+          name: projectName.value,
+          type: typeLabel,
+          editionMode,
+          description: digitalHumanDescription.value,
+          extra: usesOpenApi ? '第三方 Open API' : linkedAgent.name,
+          linkedAgentId: usesOpenApi ? '' : linkedAgent.subtitle,
+          agentAccessMode: agentAccessMode.value,
+          openApiConfig,
+          resolution: videoResolution.value,
+          resolutionType: resolutionType.value,
+          serverAddress: editionMode === 'local' ? digitalHumanServerAddress.value.trim() : '',
+        }
+        digitalHumanRows.value[index] = updatedRow
+        const sourceIndex = moduleData.digitalHumans.rows.findIndex((row) => row.appCode === updatedRow.appCode)
+        if (sourceIndex !== -1) moduleData.digitalHumans.rows[sourceIndex] = updatedRow
+      }
+    } else {
+      const newAgent = usesOpenApi ? null : createPlatformAgent()
       const newDigitalHuman = {
         name: projectName.value,
         subtitle: '数字人形象',
         type: typeLabel,
         editionMode,
-        extra: agentName,
-        linkedAgentId: agentId,
+        extra: usesOpenApi ? '第三方 Open API' : newAgent.name,
+        linkedAgentId: newAgent?.subtitle || '',
+        agentAccessMode: agentAccessMode.value,
+        openApiConfig,
         description: digitalHumanDescription.value,
         createdAt,
         appCode: generateAppCode(),
@@ -1149,13 +1214,11 @@ function submitCreate() {
         isTemplate: false,
         tone: 'violet',
       }
-      agentRows.value.unshift(newAgent)
       digitalHumanRows.value.unshift(newDigitalHuman)
-      moduleData.agents.rows.unshift(newAgent)
       moduleData.digitalHumans.rows.unshift(newDigitalHuman)
     }
     closeModal()
-    showToast(wasEditing ? '数字人设置已保存' : '数字人及专属智能体创建成功')
+    showToast(wasEditing ? '数字人设置已保存' : usesOpenApi ? '数字人已创建，第三方 Open API 已接入' : '数字人及专属智能体创建成功')
     return
   }
   closeModal()
@@ -1179,6 +1242,11 @@ function openDigitalHumanSettings(row) {
   associatedAgent.value = row.extra
   applyDigitalHumanResolution(row.resolution, row.resolutionType)
   digitalHumanServerAddress.value = rowEditionMode === 'local' ? row.serverAddress || '127.0.0.1' : ''
+  agentAccessMode.value = row.agentAccessMode === 'openapi' ? 'openapi' : 'platform'
+  openApiBaseUrl.value = row.openApiConfig?.baseUrl || ''
+  openApiApiKey.value = row.openApiConfig?.apiKey || ''
+  openApiModel.value = row.openApiConfig?.model || ''
+  showOpenApiKey.value = false
   modalOpen.value = true
 }
 
@@ -1196,6 +1264,7 @@ function toggleDigitalHumanTemplate(row) {
 }
 
 function copyDigitalHuman(row) {
+  const usesOpenApi = row.agentAccessMode === 'openapi'
   const sourceAgent = agentRows.value.find((agent) => agent.subtitle === row.linkedAgentId)
     || moduleData.agents.rows.find((agent) => agent.name === row.extra)
   const createdAt = new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-')
@@ -1213,17 +1282,18 @@ function copyDigitalHuman(row) {
   const copiedHuman = {
     ...row,
     name: `${row.name}-副本`,
-    extra: agentName,
-    linkedAgentId: agentId,
+    extra: usesOpenApi ? '第三方 Open API' : agentName,
+    linkedAgentId: usesOpenApi ? '' : agentId,
+    openApiConfig: row.openApiConfig ? { ...row.openApiConfig } : null,
     createdAt,
     appCode: generateAppCode(),
     isTemplate: false,
   }
-  agentRows.value.unshift(copiedAgent)
+  if (!usesOpenApi) agentRows.value.unshift(copiedAgent)
   digitalHumanRows.value.unshift(copiedHuman)
-  moduleData.agents.rows.unshift(copiedAgent)
+  if (!usesOpenApi) moduleData.agents.rows.unshift(copiedAgent)
   moduleData.digitalHumans.rows.unshift(copiedHuman)
-  showToast('数字人应用已复制，并创建新的专属智能体')
+  showToast(usesOpenApi ? '数字人应用已复制，第三方 Open API 配置已保留' : '数字人应用已复制，并创建新的专属智能体')
 }
 
 function toggleAgentTemplate(row) {
@@ -1503,7 +1573,7 @@ function getEditionMode(editionName) {
     </section>
 
     <section v-if="!['digitalHumans', 'agents', 'knowledge'].includes(route.meta.moduleKey)" class="stats-grid" :class="{ 'benefits-stats-grid': route.meta.moduleKey === 'benefits', 'training-stats-grid': route.meta.moduleKey === 'training' }">
-      <article v-for="(stat, index) in current.stats" :key="stat.label" class="stat-card" :style="{ '--delay': `${index * 55}ms` }">
+      <article v-for="(stat, index) in displayStats" :key="stat.label" class="stat-card" :style="{ '--delay': `${index * 55}ms` }">
         <div class="stat-icon"><AppIcon :name="stat.icon" :size="21" /></div>
         <div class="stat-content">
           <span>{{ stat.label }}</span>
@@ -1676,10 +1746,10 @@ function getEditionMode(editionName) {
             <thead><tr><th>资源名称</th><th>配置信息</th><th>创建时间</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="row in filteredResourceRows" :key="row.subtitle">
-                <td><div class="entity-cell"><span class="entity-avatar" :class="row.tone"><AppIcon :name="row.type === '语音识别资源池' ? 'message' : row.type === '语音合成资源池' ? 'video' : 'server'" :size="17" /></span><span><strong>{{ row.name }}</strong><small>{{ row.subtitle }}</small></span></div></td>
-                <td><div class="resource-config-summary"><span>{{ row.extra }}</span><small v-if="row.appId">APPID：{{ row.appId }}</small><small v-else>license.key 已安全保存</small></div></td>
+                <td><div class="entity-cell"><span class="entity-avatar" :class="row.tone"><AppIcon :name="row.type === '语音识别资源池' ? 'message' : row.type === '语音合成资源池' ? 'video' : 'server'" :size="17" /></span><span><strong>{{ row.name }} <em v-if="row.isActive" class="resource-active-tag">当前使用</em></strong><small>{{ row.subtitle }}</small></span></div></td>
+                <td><div class="resource-config-summary"><span>{{ row.serviceUrl ? `服务地址：${row.serviceUrl}` : row.extra }}</span><small v-if="row.type === '本地数字人授权资源'">license.key 已安全保存</small></div></td>
                 <td>{{ row.date }}</td>
-                <td><div class="resource-row-actions"><button type="button" @click="openResourceEditor(row)"><AppIcon name="edit" :size="13" />编辑</button><button type="button" class="danger" @click="deleteResource(row)"><AppIcon name="trash" :size="13" />删除</button></div></td>
+                <td><div class="resource-row-actions"><button v-if="!row.isActive" type="button" class="activate-resource" @click="activateResource(row)"><AppIcon name="check" :size="13" />设为使用中</button><button type="button" @click="openResourceEditor(row)"><AppIcon name="edit" :size="13" />编辑</button><button type="button" class="danger" @click="deleteResource(row)"><AppIcon name="trash" :size="13" />删除</button></div></td>
               </tr>
             </tbody>
           </table>
@@ -2013,11 +2083,6 @@ function getEditionMode(editionName) {
               </label>
             </template>
             <template v-else-if="route.meta.moduleKey === 'digitalHumans'">
-              <label for="create-digital-human-type">数字人类型</label>
-              <select id="create-digital-human-type" v-model="digitalHumanEdition" required>
-                <option v-for="edition in digitalHumanEditions" :key="edition" :value="edition">{{ edition }}</option>
-              </select>
-
               <label for="digital-human-description">描述</label>
               <textarea id="digital-human-description" v-model.trim="digitalHumanDescription" rows="3" required placeholder="请输入数字人的用途和场景描述"></textarea>
 
@@ -2026,9 +2091,25 @@ function getEditionMode(editionName) {
                 <input id="digital-human-server-address" v-model.trim="digitalHumanServerAddress" required placeholder="127.0.0.1" />
               </template>
 
-              <div class="auto-agent-note">
+              <label for="digital-human-agent-access">接入智能体</label>
+              <select id="digital-human-agent-access" v-model="agentAccessMode" required>
+                <option value="platform">平台自动创建智能体</option>
+                <option value="openapi">第三方 Open API 数据源</option>
+              </select>
+              <div v-if="agentAccessMode === 'platform'" class="auto-agent-note">
                 <AppIcon name="bot" :size="18" />
                 <div><strong>自动创建专属智能体</strong><span>创建数字人应用后，系统将自动生成一个智能体并进行一对一关联。</span></div>
+              </div>
+              <div v-else class="digital-human-open-api-fields">
+                <label for="digital-human-open-api-base-url">base_url</label>
+                <input id="digital-human-open-api-base-url" v-model.trim="openApiBaseUrl" type="url" pattern="https?://.+" required placeholder="https://api.example.com/v1" autocomplete="url" />
+                <label for="digital-human-open-api-key">api_key</label>
+                <div class="digital-human-open-api-key-field">
+                  <input id="digital-human-open-api-key" v-model.trim="openApiApiKey" :type="showOpenApiKey ? 'text' : 'password'" required placeholder="请输入 API Key" autocomplete="off" />
+                  <button type="button" :aria-label="showOpenApiKey ? '隐藏 API Key' : '显示 API Key'" @click="showOpenApiKey = !showOpenApiKey">{{ showOpenApiKey ? '隐藏' : '显示' }}</button>
+                </div>
+                <label for="digital-human-open-api-model">model</label>
+                <input id="digital-human-open-api-model" v-model.trim="openApiModel" required placeholder="请输入模型名称" />
               </div>
 
               <fieldset class="resolution-fieldset">
@@ -2311,32 +2392,26 @@ function getEditionMode(editionName) {
               </section>
             </template>
             <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '音色管理'">
-              <div class="voice-asset-form-grid">
-                <div><label for="asset-voice-id">音色ID</label><input id="asset-voice-id" v-model.trim="assetVoiceId" required placeholder="请输入音色ID" /></div>
-                <div><label for="asset-voice-gender">性别分类</label><select id="asset-voice-gender" v-model="assetVoiceGender" required><option>女声</option><option>男声</option></select></div>
-              </div>
-              <fieldset class="voice-type-fieldset">
-                <legend>音色类型</legend>
-                <div class="voice-type-options">
-                  <label :class="{ selected: assetVoiceType === '标准音色' }"><input v-model="assetVoiceType" type="radio" value="标准音色" /><span class="type-radio"></span><span><strong>标准音色</strong><small>平台通用标准声音</small></span></label>
-                  <label :class="{ selected: assetVoiceType === '定制音色' }"><input v-model="assetVoiceType" type="radio" value="定制音色" /><span class="type-radio"></span><span><strong>定制音色</strong><small>专属训练定制声音</small></span></label>
-                </div>
-              </fieldset>
-              <div class="voice-range-grid">
-                <label for="asset-voice-pitch"><span>语调</span><strong>{{ Number(assetVoicePitch).toFixed(1) }}</strong><input id="asset-voice-pitch" v-model.number="assetVoicePitch" type="range" min="0" max="3" step="0.1" /></label>
-                <label for="asset-voice-speed"><span>音速</span><strong>{{ Number(assetVoiceSpeed).toFixed(1) }}</strong><input id="asset-voice-speed" v-model.number="assetVoiceSpeed" type="range" min="0" max="3" step="0.1" /></label>
-              </div>
-              <label for="asset-voice-description">描述</label>
-              <textarea id="asset-voice-description" v-model.trim="assetVoiceDescription" rows="3" maxlength="200" required placeholder="请输入音色特点和适用场景"></textarea>
-              <label>音色试听音频</label>
-              <label class="video-upload voice-audio-upload" :class="{ 'has-file': assetAudioFile }">
+              <label for="asset-voice-gender">性别</label>
+              <select id="asset-voice-gender" v-model="assetVoiceGender" class="asset-link-select" required>
+                <option value="" disabled>请选择性别</option>
+                <option value="女声">女声</option>
+                <option value="男声">男声</option>
+              </select>
+              <label>上传音频素材</label>
+              <label class="video-upload voice-audio-upload" :class="{ 'has-file': assetAudioFile || assetAudioExistingName }">
                 <input ref="assetAudioInput" type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4" :required="!editingAssetId" @change="handleAssetAudioChange" />
-                <span class="upload-icon"><AppIcon :name="assetAudioFile ? 'check' : 'message'" :size="22" /></span>
-                <span class="upload-copy"><strong>{{ assetAudioFile ? assetAudioFile.name : '点击上传音色试听音频' }}</strong><small>{{ assetAudioFile ? `${(assetAudioFile.size / 1024 / 1024).toFixed(1)} MB` : '支持 MP3、WAV、OGG、M4A 音频格式' }}</small></span>
-                <button v-if="assetAudioFile" type="button" class="upload-remove" aria-label="移除试听音频" @click.prevent="clearAssetAudio"><AppIcon name="close" :size="16" /></button>
+                <span class="upload-icon"><AppIcon :name="assetAudioFile || assetAudioExistingName ? 'check' : 'message'" :size="22" /></span>
+                <span class="upload-copy"><strong>{{ assetAudioFile?.name || assetAudioExistingName || '点击上传音频素材' }}</strong><small>{{ assetAudioFile ? `${(assetAudioFile.size / 1024 / 1024).toFixed(1)} MB` : assetAudioExistingName ? '已上传，选择新文件可替换' : '支持 MP3、WAV、OGG、M4A 音频格式' }}</small></span>
+                <button v-if="assetAudioFile" type="button" class="upload-remove" aria-label="移除新上传音频" @click.prevent="clearAssetAudio"><AppIcon name="close" :size="16" /></button>
                 <span v-else class="upload-action">选择音频</span>
               </label>
-              <audio v-if="assetAudioPreviewUrl" class="voice-audio-preview" :src="assetAudioPreviewUrl" controls></audio>
+              <audio v-if="assetAudioPreviewUrl || assetAudioExistingUrl" class="voice-audio-preview" :src="assetAudioPreviewUrl || assetAudioExistingUrl" controls></audio>
+              <div v-if="assetAudioFile || assetAudioExistingName || assetAudioTranscript" class="voice-transcript-panel asset-voice-transcript">
+                <div class="voice-transcript-heading"><strong>音频文案</strong></div>
+                <p class="voice-demo-note">当前先填入模拟识别文案，尚未调用 ASR 服务。请对照音频修改后保存。</p>
+                <textarea v-model.trim="assetAudioTranscript" rows="3" required aria-label="音频文案" placeholder="请填写与音频一致的文案"></textarea>
+              </div>
             </template>
             <template v-else-if="route.meta.moduleKey === 'assets' && activeAssetCategory === '嘴唇模型管理'">
               <label>嘴唇模型文件</label>
@@ -2513,20 +2588,17 @@ function getEditionMode(editionName) {
 
             <div v-if="resourceType === 'asr'" class="resource-form-grid">
               <div class="full-field"><label for="asr-resource-name">资源名称</label><input id="asr-resource-name" v-model.trim="resourceName" required placeholder="请输入语音识别资源名称" /></div>
-              <div><label for="asr-sn">SN</label><input id="asr-sn" v-model.trim="resourceSn" required placeholder="请输入SN" /></div>
-              <div><label for="asr-appid">APPID</label><input id="asr-appid" v-model.trim="resourceAppId" required placeholder="请输入APPID" /></div>
-              <div><label for="asr-appkey">APPKEY</label><div class="resource-secret-field"><input id="asr-appkey" v-model.trim="resourceAppKey" :type="showResourceAppKey ? 'text' : 'password'" required autocomplete="off" placeholder="请输入APPKEY" /><button type="button" :aria-label="showResourceAppKey ? '隐藏APPKEY' : '显示APPKEY'" :title="showResourceAppKey ? '隐藏' : '显示'" @click="showResourceAppKey = !showResourceAppKey"><AppIcon :name="showResourceAppKey ? 'eye-off' : 'eye'" :size="16" /></button></div></div>
-              <div><label for="asr-scene">场景</label><input id="asr-scene" v-model.trim="resourceScene" required placeholder="例如：数字人实时交互" /></div>
+              <div class="full-field"><label for="asr-service-url">服务地址</label><input id="asr-service-url" v-model.trim="resourceServiceUrl" type="text" required pattern="wss?://.+" title="请输入 ws:// 或 wss:// 开头的服务地址" placeholder="例如：ws://192.168.10.28:10096" /></div>
             </div>
 
             <div v-else-if="resourceType === 'tts'" class="resource-form-grid">
               <div class="full-field"><label for="tts-resource-name">资源名称</label><input id="tts-resource-name" v-model.trim="resourceName" required placeholder="请输入语音合成资源名称" /></div>
-              <div><label for="tts-appid">APPID</label><input id="tts-appid" v-model.trim="resourceAppId" required placeholder="请输入APPID" /></div>
-              <div><label for="tts-cluster">Cluster</label><input id="tts-cluster" v-model.trim="resourceCluster" required placeholder="请输入Cluster" /></div>
-              <div class="full-field"><label for="tts-access-token">Access Token</label><div class="resource-secret-field"><input id="tts-access-token" v-model.trim="resourceAccessToken" :type="showResourceAccessToken ? 'text' : 'password'" required autocomplete="off" placeholder="请输入Access Token" /><button type="button" :aria-label="showResourceAccessToken ? '隐藏Access Token' : '显示Access Token'" :title="showResourceAccessToken ? '隐藏' : '显示'" @click="showResourceAccessToken = !showResourceAccessToken"><AppIcon :name="showResourceAccessToken ? 'eye-off' : 'eye'" :size="16" /></button></div></div>
+              <div class="full-field"><label for="tts-service-url">服务地址</label><input id="tts-service-url" v-model.trim="resourceServiceUrl" type="text" required pattern="https?://.+" title="请输入 http:// 或 https:// 开头的服务地址" placeholder="例如：http://192.168.10.120:19100" /></div>
             </div>
 
             <div v-else class="resource-license-field">
+              <label for="local-resource-name">资源名称</label>
+              <input id="local-resource-name" v-model.trim="resourceName" required placeholder="请输入本地授权资源名称" />
               <label for="local-license-key">license.key</label>
               <textarea id="local-license-key" v-model.trim="resourceLicenseKey" rows="5" required placeholder="请输入本地数字人授权license.key"></textarea>
               <small>授权示例</small>

@@ -10,6 +10,7 @@ const scripts = [
 
 const mode = ref('upload')
 const voiceName = ref('')
+const voiceGender = ref('')
 const audioFile = ref(null)
 const audioUrl = ref('')
 const audioValidationState = ref('idle')
@@ -21,19 +22,20 @@ const confirmedTranscript = ref('')
 const selectedScript = ref(0)
 const message = ref('')
 const tasks = ref([
-  { id: 'demo-1', name: '晓冉 · 自然女声', file: 'xiaoran_original.wav', method: '自由上传', createdAt: '2026-08-06 14:28:16', status: '已完成', originalText: '您好，欢迎使用数字人平台。今天我将为您介绍产品的主要功能。', synthesisText: '', demo: true },
-  { id: 'demo-2', name: '云泽 · 沉稳男声', file: 'yunze_original.mp3', method: '固定文案上传', createdAt: '2026-08-04 10:15:42', status: '已完成', originalText: '大家好，很高兴为您介绍我们的数字人服务。', synthesisText: '', demo: true },
-  { id: 'demo-3', name: '清和 · 温柔女声', file: 'qinghe_original.flac', method: '自由上传', createdAt: '2026-07-30 16:42:09', status: '已完成', originalText: '您好，请问有什么可以帮您？我会为您提供清晰准确的解答。', synthesisText: '', demo: true },
+  { id: 'demo-1', name: '晓冉 · 自然女声', gender: '女声', file: 'xiaoran_original.wav', method: '自由上传', createdAt: '2026-08-06 14:28:16', status: '已完成', originalText: '您好，欢迎使用数字人平台。今天我将为您介绍产品的主要功能。', synthesisText: '', demo: true },
+  { id: 'demo-2', name: '云泽 · 沉稳男声', gender: '男声', file: 'yunze_original.mp3', method: '固定文案上传', createdAt: '2026-08-04 10:15:42', status: '已完成', originalText: '大家好，很高兴为您介绍我们的数字人服务。', synthesisText: '', demo: true },
+  { id: 'demo-3', name: '清和 · 温柔女声', gender: '女声', file: 'qinghe_original.flac', method: '自由上传', createdAt: '2026-07-30 16:42:09', status: '已完成', originalText: '您好，请问有什么可以帮您？我会为您提供清晰准确的解答。', synthesisText: '', demo: true },
 ])
 const activeSpeech = ref('')
 const taskPreviewMessage = ref('')
-const canSubmitTraining = computed(() => Boolean(audioFile.value && audioValidationState.value === 'valid' && voiceName.value.trim()
+const canSubmitTraining = computed(() => Boolean(audioFile.value && audioValidationState.value === 'valid' && voiceName.value.trim() && voiceGender.value
   && confirmed.value && transcript.value.trim() === confirmedTranscript.value))
 const submitBlockReason = computed(() => {
   if (!audioFile.value) return '请先上传音频'
   if (audioValidationState.value === 'checking') return '正在检查音频时长，请稍候'
   if (audioValidationState.value !== 'valid') return audioValidationMessage.value || '请上传有效音频'
   if (!voiceName.value.trim()) return '请填写音色名称'
+  if (!voiceGender.value) return '请选择性别'
   if (!confirmed.value || transcript.value.trim() !== confirmedTranscript.value) return '请核对并确认音频文案'
   return '已完成文案确认，可以提交训练'
 })
@@ -206,12 +208,14 @@ function handleTranscriptInput() {
 
 function submitTraining() {
   if (!voiceName.value.trim()) { message.value = '请填写音色名称'; return }
+  if (!voiceGender.value) { message.value = '请选择性别'; return }
   if (!audioFile.value) { message.value = '请先上传音频'; return }
   if (audioValidationState.value !== 'valid') { message.value = '请上传时长不超过 20 秒的有效音频'; return }
   if (!canSubmitTraining.value) { message.value = '请先确认音频文案'; return }
-  tasks.value.unshift({ id: Date.now(), name: voiceName.value.trim(), file: audioFile.value.name, method: mode.value === 'upload' ? '自由上传' : '固定文案上传', createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), status: '待训练（演示）', originalText: transcript.value.trim(), originalUrl: audioUrl.value, synthesisText: '', demo: false })
+  tasks.value.unshift({ id: Date.now(), name: voiceName.value.trim(), gender: voiceGender.value, file: audioFile.value.name, method: mode.value === 'upload' ? '自由上传' : '固定文案上传', createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), status: '待训练（演示）', originalText: transcript.value.trim(), originalUrl: audioUrl.value, synthesisText: '', demo: false })
   audioUrl.value = ''
   voiceName.value = ''
+  voiceGender.value = ''
   clearAudio()
   message.value = '训练任务已加入演示列表'
 }
@@ -251,6 +255,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="voice-form-field"><label for="voice-training-name">音色名称</label><input id="voice-training-name" v-model="voiceName" maxlength="50" placeholder="例如：品牌讲解员音色" /></div>
+        <div class="voice-form-field"><label for="voice-training-gender">性别</label><select id="voice-training-gender" v-model="voiceGender" required><option value="" disabled>请选择性别</option><option value="男声">男声</option><option value="女声">女声</option></select></div>
 
         <template v-if="mode === 'upload'">
           <div class="voice-form-field"><label for="voice-audio-input">上传音频素材</label>
@@ -279,6 +284,6 @@ onBeforeUnmount(() => {
       <aside class="voice-tips-card"><h2>音频准备建议</h2><ul><li>训练音频仅支持 WAV、FLAC、MP3；建议 5–10 秒，最长不超过 20 秒。</li><li>在安静环境中录制，尽量减少回声、音乐和背景杂音。</li><li>只保留同一人的声音，语速自然，发音清晰。</li><li>上传后认真核对文案，确保文字与实际音频一致。</li></ul><div><AppIcon name="info" :size="18" /><p>当前页面演示音色训练交互。真实 ASR 识别与音色模型训练需要后端服务接入。</p></div></aside>
     </div>
 
-    <section class="voice-task-card"><div class="voice-section-heading"><div><h2>训练任务</h2><p>查看音色、原始音频与文案合成试听</p></div><span>{{ tasks.length }} 条</span></div><div class="voice-task-list"><article v-for="task in tasks" :key="task.id" class="voice-task-detail"><div class="voice-task-heading"><span class="voice-task-icon"><AppIcon name="mic" :size="19" /></span><div><strong>{{ task.name }}</strong><small>训练时间：{{ task.createdAt }} · {{ task.method }}</small></div><em>{{ task.status }}</em></div><div class="voice-task-preview-grid"><div class="voice-task-original"><strong>原始音频试听</strong><small>{{ task.file }}</small><audio v-if="task.originalUrl" :src="task.originalUrl" controls preload="metadata" /><button v-else type="button" @click="speakText(task, task.originalText, 'original')">{{ activeSpeech === `${task.id}-original` ? '播放中，点击其他试听可切换' : '试听原始音频' }}</button><p v-if="task.demo">示例任务暂无原始文件，使用浏览器语音演示。</p></div><div class="voice-task-synthesis"><label :for="`voice-synthesis-${task.id}`">输入文案合成试听</label><textarea :id="`voice-synthesis-${task.id}`" v-model="task.synthesisText" rows="2" maxlength="500" placeholder="输入需要试听的文案" @input="changeSynthesisText(task)" /><div><button type="button" :disabled="!task.synthesisText?.trim()" @click="synthesizeTask(task)"><AppIcon name="video" :size="15" />{{ activeSpeech === `${task.id}-synthesis` ? '合成或播放中…' : '合成并试听' }}</button><span>最多 500 字</span></div><audio v-if="task.synthesizedUrl" :src="task.synthesizedUrl" controls autoplay preload="metadata" /></div></div></article></div><p v-if="taskPreviewMessage" class="voice-form-message" role="status">{{ taskPreviewMessage }}</p></section>
+    <section class="voice-task-card"><div class="voice-section-heading"><div><h2>训练任务</h2><p>查看音色、原始音频与文案合成试听</p></div><span>{{ tasks.length }} 条</span></div><div class="voice-task-list"><article v-for="task in tasks" :key="task.id" class="voice-task-detail"><div class="voice-task-heading"><span class="voice-task-icon"><AppIcon name="mic" :size="19" /></span><div><strong>{{ task.name }}</strong><small>性别：{{ task.gender }} · 训练时间：{{ task.createdAt }} · {{ task.method }}</small></div><em>{{ task.status }}</em></div><div class="voice-task-preview-grid"><div class="voice-task-original"><strong>原始音频试听</strong><small>{{ task.file }}</small><audio v-if="task.originalUrl" :src="task.originalUrl" controls preload="metadata" /><button v-else type="button" @click="speakText(task, task.originalText, 'original')">{{ activeSpeech === `${task.id}-original` ? '播放中，点击其他试听可切换' : '试听原始音频' }}</button><p v-if="task.demo">示例任务暂无原始文件，使用浏览器语音演示。</p></div><div class="voice-task-synthesis"><label :for="`voice-synthesis-${task.id}`">输入文案合成试听</label><textarea :id="`voice-synthesis-${task.id}`" v-model="task.synthesisText" rows="2" maxlength="500" placeholder="输入需要试听的文案" @input="changeSynthesisText(task)" /><div><button type="button" :disabled="!task.synthesisText?.trim()" @click="synthesizeTask(task)"><AppIcon name="video" :size="15" />{{ activeSpeech === `${task.id}-synthesis` ? '合成或播放中…' : '合成并试听' }}</button><span>最多 500 字</span></div><audio v-if="task.synthesizedUrl" :src="task.synthesizedUrl" controls autoplay preload="metadata" /></div></div></article></div><p v-if="taskPreviewMessage" class="voice-form-message" role="status">{{ taskPreviewMessage }}</p></section>
   </div>
 </template>
