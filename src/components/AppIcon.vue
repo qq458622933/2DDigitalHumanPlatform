@@ -41,6 +41,18 @@ defineProps({
     <template v-else-if="name === 'server'">
       <rect x="3" y="3" width="18" height="7" rx="2" /><rect x="3" y="14" width="18" height="7" rx="2" /><path d="M7 6.5h.01M7 17.5h.01" />
     </template>
+    <template v-else-if="name === 'devices'">
+      <rect x="3" y="3" width="18" height="14" rx="2" /><path d="M8 21h8M12 17v4M7 7h10M7 11h6" />
+    </template>
+    <template v-else-if="name === 'route-map'">
+      <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" /><path d="M9 3v15M15 6v15" />
+    </template>
+    <template v-else-if="name === 'map-pin'">
+      <path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z" /><circle cx="12" cy="10" r="2.5" />
+    </template>
+    <template v-else-if="name === 'power'">
+      <path d="M12 2v10" /><path d="M6.6 5.8a9 9 0 1 0 10.8 0" />
+    </template>
     <template v-else-if="name === 'folder'">
       <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H9l2 2h7.5A2.5 2.5 0 0 1 21 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-10Z" />
     </template>
@@ -62,6 +74,7 @@ defineProps({
     <template v-else-if="name === 'close'"><path d="m6 6 12 12M18 6 6 18" /></template>
     <template v-else-if="name === 'user'"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></template>
     <template v-else-if="name === 'clock'"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></template>
+    <template v-else-if="name === 'refresh'"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M5.6 9A7 7 0 0 1 18.2 7L20 12M4 12l1.8 5A7 7 0 0 0 18.4 15" /></template>
     <template v-else-if="name === 'check'"><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" /></template>
     <template v-else-if="name === 'chart'"><path d="M4 19V9M10 19V5M16 19v-7M22 19V2" /></template>
     <template v-else-if="name === 'message'"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z" /></template>

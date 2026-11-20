@@ -9,6 +9,7 @@ export const navItems = [
   { key: 'voiceTraining', label: '音色训练', path: '/voice-training', icon: 'mic' },
   { key: 'orchestration', label: '动作编排', path: '/orchestration', icon: 'workflow' },
   { key: 'digitalHumans', label: '数字人', path: '/digital-humans', icon: 'video' },
+  { key: 'devices', label: '设备管理', path: '/devices', icon: 'devices' },
   { key: 'knowledge', label: '知识库', path: '/knowledge', icon: 'book' },
   { key: 'benefits', label: '权益管理', path: '/benefits', icon: 'crown' },
   { key: 'resources', label: '资源池管理', path: '/resources', icon: 'server' },

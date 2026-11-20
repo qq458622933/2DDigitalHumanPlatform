@@ -9,6 +9,10 @@ import KnowledgeDocumentDetailView from '../views/KnowledgeDocumentDetailView.vu
 import VersionManagementView from '../views/VersionManagementView.vue'
 import AgentRealtimeEditorView from '../views/AgentRealtimeEditorView.vue'
 import VoiceTrainingView from '../views/VoiceTrainingView.vue'
+import DeviceManagementView from '../views/DeviceManagementView.vue'
+import DeviceRouteMapView from '../views/DeviceRouteMapView.vue'
+import DeviceRouteCreateView from '../views/DeviceRouteCreateView.vue'
+import DevicePointGuideView from '../views/DevicePointGuideView.vue'
 
 const routes = [
   { path: '/', redirect: '/training' },
@@ -20,6 +24,11 @@ const routes = [
   { path: '/digital-humans', name: 'digitalHumans', component: ModuleView, meta: { moduleKey: 'digitalHumans' } },
   { path: '/digital-humans/:appCode', name: 'digitalHumanDetail', component: DigitalHumanDetailView },
   { path: '/digital-humans/:digitalHumanCode/agent/:agentId', name: 'digitalHumanAgentDetail', component: AgentDetailView },
+  { path: '/devices', name: 'devices', component: DeviceManagementView },
+  { path: '/devices/:sn/route-map', name: 'deviceRouteMap', component: DeviceRouteMapView },
+  { path: '/devices/:sn/route-map/new', name: 'deviceRouteCreate', component: DeviceRouteCreateView },
+  { path: '/devices/:sn/route-map/:routeId/edit', name: 'deviceRouteEdit', component: DeviceRouteCreateView },
+  { path: '/devices/:sn/route-map/point-guide', name: 'devicePointGuide', component: DevicePointGuideView },
   { path: '/orchestration', name: 'orchestration', component: OrchestrationView },
   { path: '/knowledge', name: 'knowledge', component: ModuleView, meta: { moduleKey: 'knowledge' } },
   { path: '/knowledge/upload', name: 'knowledgeUpload', component: KnowledgeUploadView },
