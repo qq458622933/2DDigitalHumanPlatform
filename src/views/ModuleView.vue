@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import { moduleData } from '../config/modules'
 import { resourcePoolRows } from '../config/resourcePool'
+import { userAgentResources } from '../config/userResources'
 import { digitalHumanEditions, editionTypeMap } from '../config/digitalHumanVersions'
 
 const route = useRoute()
@@ -35,10 +36,7 @@ const customResolutionWidth = ref(1920)
 const customResolutionHeight = ref(1080)
 const digitalHumanServerAddress = ref('')
 const agentAccessMode = ref('platform')
-const openApiBaseUrl = ref('')
-const openApiApiKey = ref('')
-const openApiModel = ref('')
-const showOpenApiKey = ref(false)
+const selectedUserAgentResourceId = ref('')
 const videoFile = ref(null)
 const videoInput = ref(null)
 const trainingPreviewFile = ref(null)
@@ -60,6 +58,12 @@ const benefitModalOpen = ref(false)
 const selectedBenefitType = ref('设备授权')
 const benefitQuantity = ref(1)
 const trainingBenefitType = ref('2D在线版')
+const trainingBenefitBalanceHint = computed(() => {
+  if (selectedBenefitType.value === '音色训练次数' || trainingBenefitType.value === '2D私有化版本') {
+    return '当前为演示，具体可分配次数待后端接入'
+  }
+  return trainingBenefitType.value === '2D在线版' ? '当前可分配：16 次2D在线版训练' : '当前可分配：10 次2D本地版训练'
+})
 const benefitUserPhone = ref('')
 const benefitAuthorizationName = ref('')
 const benefitDuration = ref(30)
@@ -182,6 +186,7 @@ const commonActionLinkOptions = computed(() => {
     && row.actionAssetType === expectedType)
 })
 const digitalHumanEditionMode = computed(() => getEditionMode(digitalHumanEdition.value))
+const selectedUserAgentResource = computed(() => userAgentResources.value.find((resource) => resource.id === selectedUserAgentResourceId.value))
 const trainingEditionMode = computed(() => getEditionMode(trainingEdition.value))
 const selectedTrainingEditionMode = computed(() => selectedTraining.value?.editionMode || getEditionMode(selectedTraining.value?.type))
 const selectedTrainingRequiresWalkingConfig = computed(() => selectedTrainingEditionMode.value === 'local'
@@ -416,10 +421,7 @@ function openModal() {
     customResolutionHeight.value = 1080
     digitalHumanServerAddress.value = '127.0.0.1'
     agentAccessMode.value = 'platform'
-    openApiBaseUrl.value = ''
-    openApiApiKey.value = ''
-    openApiModel.value = ''
-    showOpenApiKey.value = false
+    selectedUserAgentResourceId.value = ''
   }
   if (route.meta.moduleKey === 'assets' && activeAssetCategory.value === '形象管理') {
     assetLinkedLipModelId.value = activeAssetEdition.value === '2D本地版' ? defaultAssetLipModel.value?.subtitle || '' : ''
@@ -463,10 +465,7 @@ function closeModal() {
   customResolutionHeight.value = 1080
   digitalHumanServerAddress.value = ''
   agentAccessMode.value = 'platform'
-  openApiBaseUrl.value = ''
-  openApiApiKey.value = ''
-  openApiModel.value = ''
-  showOpenApiKey.value = false
+  selectedUserAgentResourceId.value = ''
   editingDigitalHumanCode.value = ''
   editingAgentId.value = ''
   editingAssetId.value = ''
@@ -766,7 +765,7 @@ function submitBenefitAllocation() {
     })
   }
   closeBenefitModal()
-  showToast(type === '设备授权' ? `设备授权“${authorizationName}”已分配至 ${phone}` : `已向 ${phone} 分配${trainingType}形象训练次数 ${quantity}次`)
+  showToast(type === '设备授权' ? `设备授权“${authorizationName}”已分配至 ${phone}` : `已向 ${phone} 分配${trainingType}${type} ${quantity}次`)
 }
 
 function closeResourceModal() {
@@ -1146,11 +1145,11 @@ function submitCreate() {
     const typeLabel = digitalHumanEdition.value
     const editionMode = digitalHumanEditionMode.value
     const usesOpenApi = agentAccessMode.value === 'openapi'
-    const openApiConfig = usesOpenApi ? {
-      baseUrl: openApiBaseUrl.value.trim(),
-      apiKey: openApiApiKey.value.trim(),
-      model: openApiModel.value.trim(),
-    } : null
+    const selectedResource = usesOpenApi ? selectedUserAgentResource.value : null
+    if (usesOpenApi && !selectedResource) {
+      showToast('请先从用户资源中选择智能体资源')
+      return
+    }
     const createdAt = new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-')
     const createPlatformAgent = () => {
       const agent = {
@@ -1181,10 +1180,11 @@ function submitCreate() {
           type: typeLabel,
           editionMode,
           description: digitalHumanDescription.value,
-          extra: usesOpenApi ? '第三方 Open API' : linkedAgent.name,
+          extra: usesOpenApi ? selectedResource.name : linkedAgent.name,
           linkedAgentId: usesOpenApi ? '' : linkedAgent.subtitle,
           agentAccessMode: agentAccessMode.value,
-          openApiConfig,
+          userAgentResourceId: selectedResource?.id || '',
+          openApiConfig: null,
           resolution: videoResolution.value,
           resolutionType: resolutionType.value,
           serverAddress: editionMode === 'local' ? digitalHumanServerAddress.value.trim() : '',
@@ -1200,10 +1200,11 @@ function submitCreate() {
         subtitle: '数字人形象',
         type: typeLabel,
         editionMode,
-        extra: usesOpenApi ? '第三方 Open API' : newAgent.name,
+        extra: usesOpenApi ? selectedResource.name : newAgent.name,
         linkedAgentId: newAgent?.subtitle || '',
         agentAccessMode: agentAccessMode.value,
-        openApiConfig,
+        userAgentResourceId: selectedResource?.id || '',
+        openApiConfig: null,
         description: digitalHumanDescription.value,
         createdAt,
         appCode: generateAppCode(),
@@ -1218,7 +1219,7 @@ function submitCreate() {
       moduleData.digitalHumans.rows.unshift(newDigitalHuman)
     }
     closeModal()
-    showToast(wasEditing ? '数字人设置已保存' : usesOpenApi ? '数字人已创建，第三方 Open API 已接入' : '数字人及专属智能体创建成功')
+    showToast(wasEditing ? '数字人设置已保存' : usesOpenApi ? '数字人已创建，并关联用户资源中的智能体' : '数字人及专属智能体创建成功')
     return
   }
   closeModal()
@@ -1243,10 +1244,9 @@ function openDigitalHumanSettings(row) {
   applyDigitalHumanResolution(row.resolution, row.resolutionType)
   digitalHumanServerAddress.value = rowEditionMode === 'local' ? row.serverAddress || '127.0.0.1' : ''
   agentAccessMode.value = row.agentAccessMode === 'openapi' ? 'openapi' : 'platform'
-  openApiBaseUrl.value = row.openApiConfig?.baseUrl || ''
-  openApiApiKey.value = row.openApiConfig?.apiKey || ''
-  openApiModel.value = row.openApiConfig?.model || ''
-  showOpenApiKey.value = false
+  selectedUserAgentResourceId.value = userAgentResources.value.find((resource) =>
+    resource.id === row.userAgentResourceId
+      || (row.openApiConfig?.baseUrl === resource.baseUrl && row.openApiConfig?.model === resource.model))?.id || ''
   modalOpen.value = true
 }
 
@@ -1265,6 +1265,11 @@ function toggleDigitalHumanTemplate(row) {
 
 function copyDigitalHuman(row) {
   const usesOpenApi = row.agentAccessMode === 'openapi'
+  if (usesOpenApi && row.userAgentResourceId
+    && !userAgentResources.value.some((resource) => resource.id === row.userAgentResourceId)) {
+    showToast('关联的用户资源已不存在，请先重新选择')
+    return
+  }
   const sourceAgent = agentRows.value.find((agent) => agent.subtitle === row.linkedAgentId)
     || moduleData.agents.rows.find((agent) => agent.name === row.extra)
   const createdAt = new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-')
@@ -1282,7 +1287,7 @@ function copyDigitalHuman(row) {
   const copiedHuman = {
     ...row,
     name: `${row.name}-副本`,
-    extra: usesOpenApi ? '第三方 Open API' : agentName,
+    extra: usesOpenApi ? row.extra : agentName,
     linkedAgentId: usesOpenApi ? '' : agentId,
     openApiConfig: row.openApiConfig ? { ...row.openApiConfig } : null,
     createdAt,
@@ -1293,7 +1298,7 @@ function copyDigitalHuman(row) {
   digitalHumanRows.value.unshift(copiedHuman)
   if (!usesOpenApi) moduleData.agents.rows.unshift(copiedAgent)
   moduleData.digitalHumans.rows.unshift(copiedHuman)
-  showToast(usesOpenApi ? '数字人应用已复制，第三方 Open API 配置已保留' : '数字人应用已复制，并创建新的专属智能体')
+  showToast(usesOpenApi ? '数字人应用已复制，关联的用户资源已保留' : '数字人应用已复制，并创建新的专属智能体')
 }
 
 function toggleAgentTemplate(row) {
@@ -2094,22 +2099,21 @@ function getEditionMode(editionName) {
               <label for="digital-human-agent-access">接入智能体</label>
               <select id="digital-human-agent-access" v-model="agentAccessMode" required>
                 <option value="platform">平台自动创建智能体</option>
-                <option value="openapi">第三方 Open API 数据源</option>
+                <option value="openapi">从用户资源选择智能体资源</option>
               </select>
               <div v-if="agentAccessMode === 'platform'" class="auto-agent-note">
                 <AppIcon name="bot" :size="18" />
                 <div><strong>自动创建专属智能体</strong><span>创建数字人应用后，系统将自动生成一个智能体并进行一对一关联。</span></div>
               </div>
               <div v-else class="digital-human-open-api-fields">
-                <label for="digital-human-open-api-base-url">base_url</label>
-                <input id="digital-human-open-api-base-url" v-model.trim="openApiBaseUrl" type="url" pattern="https?://.+" required placeholder="https://api.example.com/v1" autocomplete="url" />
-                <label for="digital-human-open-api-key">api_key</label>
-                <div class="digital-human-open-api-key-field">
-                  <input id="digital-human-open-api-key" v-model.trim="openApiApiKey" :type="showOpenApiKey ? 'text' : 'password'" required placeholder="请输入 API Key" autocomplete="off" />
-                  <button type="button" :aria-label="showOpenApiKey ? '隐藏 API Key' : '显示 API Key'" @click="showOpenApiKey = !showOpenApiKey">{{ showOpenApiKey ? '隐藏' : '显示' }}</button>
-                </div>
-                <label for="digital-human-open-api-model">model</label>
-                <input id="digital-human-open-api-model" v-model.trim="openApiModel" required placeholder="请输入模型名称" />
+                <label for="digital-human-user-agent-resource">选择智能体资源</label>
+                <select id="digital-human-user-agent-resource" v-model="selectedUserAgentResourceId" required>
+                  <option value="" disabled>请选择用户资源中的智能体资源</option>
+                  <option v-for="resource in userAgentResources" :key="resource.id" :value="resource.id">{{ resource.name }}（{{ resource.model }}）</option>
+                </select>
+                <p v-if="selectedUserAgentResource" class="digital-human-resource-summary">服务地址：{{ selectedUserAgentResource.baseUrl }}<br />模型：{{ selectedUserAgentResource.model }}{{ selectedUserAgentResource.isMock ? ' · 演示资源' : '' }}</p>
+                <p v-else-if="!userAgentResources.length" class="digital-human-resource-summary">暂无可用资源，请先到 <RouterLink to="/user-resources">用户资源</RouterLink> 添加第三方智能体资源。</p>
+                <p class="digital-human-resource-hint">当前原型仅保存资源关联，尚未调用第三方服务。</p>
               </div>
 
               <fieldset class="resolution-fieldset">
@@ -2514,6 +2518,12 @@ function getEditionMode(editionName) {
                   <span><strong>形象训练次数</strong><small>用于创建并训练新的数字人形象</small></span>
                   <i><b></b></i>
                 </label>
+                <label :class="{ selected: selectedBenefitType === '音色训练次数' }">
+                  <input v-model="selectedBenefitType" type="radio" value="音色训练次数" />
+                  <span class="benefit-option-icon"><AppIcon name="mic" :size="20" /></span>
+                  <span><strong>音色训练次数</strong><small>用于创建并训练新的音色</small></span>
+                  <i><b></b></i>
+                </label>
               </div>
             </fieldset>
             <template v-if="selectedBenefitType === '设备授权'">
@@ -2558,10 +2568,11 @@ function getEditionMode(editionName) {
               <div class="training-benefit-type-options">
                 <label :class="{ selected: trainingBenefitType === '2D在线版' }"><input v-model="trainingBenefitType" type="radio" value="2D在线版" /><span><strong>2D在线版</strong><small>云端训练与在线使用</small></span><i><b></b></i></label>
                 <label :class="{ selected: trainingBenefitType === '2D本地版' }"><input v-model="trainingBenefitType" type="radio" value="2D本地版" /><span><strong>2D本地版</strong><small>本地部署与离线使用</small></span><i><b></b></i></label>
+                <label :class="{ selected: trainingBenefitType === '2D私有化版本' }"><input v-model="trainingBenefitType" type="radio" value="2D私有化版本" /><span><strong>2D私有化版本</strong><small>私有化部署与使用</small></span><i><b></b></i></label>
               </div>
               <label for="benefit-quantity">分配数量</label>
               <div class="benefit-quantity-field"><input id="benefit-quantity" v-model.number="benefitQuantity" type="number" min="1" required /><span>次</span></div>
-              <small class="benefit-balance-hint">当前可分配：{{ trainingBenefitType === '2D在线版' ? '16 次2D在线版训练' : '10 次2D本地版训练' }}</small>
+              <small class="benefit-balance-hint">{{ trainingBenefitBalanceHint }}</small>
             </template>
             <div class="modal-actions"><button type="button" class="secondary-button" @click="closeBenefitModal">取消</button><button type="submit" class="primary-button">确认分配</button></div>
           </form>

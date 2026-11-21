@@ -11,6 +11,7 @@ export const navItems = [
   { key: 'digitalHumans', label: '数字人', path: '/digital-humans', icon: 'video' },
   { key: 'devices', label: '设备管理', path: '/devices', icon: 'devices' },
   { key: 'knowledge', label: '知识库', path: '/knowledge', icon: 'book' },
+  { key: 'userResources', label: '用户资源', path: '/user-resources', icon: 'bot' },
   { key: 'benefits', label: '权益管理', path: '/benefits', icon: 'crown' },
   { key: 'resources', label: '资源池管理', path: '/resources', icon: 'server' },
   { key: 'assets', label: '资产管理', path: '/assets', icon: 'folder' },

@@ -13,6 +13,7 @@ import DeviceManagementView from '../views/DeviceManagementView.vue'
 import DeviceRouteMapView from '../views/DeviceRouteMapView.vue'
 import DeviceRouteCreateView from '../views/DeviceRouteCreateView.vue'
 import DevicePointGuideView from '../views/DevicePointGuideView.vue'
+import UserResourcesView from '../views/UserResourcesView.vue'
 
 const routes = [
   { path: '/', redirect: '/training' },
@@ -36,6 +37,7 @@ const routes = [
   { path: '/knowledge/:knowledgeId/documents/:documentId', name: 'knowledgeDocumentDetail', component: KnowledgeDocumentDetailView },
   { path: '/benefits', name: 'benefits', component: ModuleView, meta: { moduleKey: 'benefits' } },
   { path: '/resources', name: 'resources', component: ModuleView, meta: { moduleKey: 'resources' } },
+  { path: '/user-resources', name: 'userResources', component: UserResourcesView },
   { path: '/assets', name: 'assets', component: ModuleView, meta: { moduleKey: 'assets' } },
   { path: '/versions', name: 'versions', component: VersionManagementView, meta: { moduleKey: 'versions' } },
 ]

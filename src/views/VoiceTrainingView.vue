@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 
 const scripts = [
@@ -9,6 +9,10 @@ const scripts = [
 ]
 
 const mode = ref('upload')
+const createModalOpen = ref(false)
+const createButton = ref(null)
+const createNameInput = ref(null)
+const taskNotice = ref('')
 const voiceName = ref('')
 const voiceGender = ref('')
 const audioFile = ref(null)
@@ -128,6 +132,23 @@ function changeMode(nextMode) {
   mode.value = nextMode
 }
 
+function openCreateModal() {
+  taskNotice.value = ''
+  createModalOpen.value = true
+  nextTick(() => createNameInput.value?.focus())
+}
+
+function closeCreateModal() {
+  createModalOpen.value = false
+  mode.value = 'upload'
+  selectedScript.value = 0
+  voiceName.value = ''
+  voiceGender.value = ''
+  message.value = ''
+  clearAudio()
+  nextTick(() => createButton.value?.focus())
+}
+
 async function useAudioFile(file) {
   clearAudio()
   if (!file) return
@@ -214,10 +235,8 @@ function submitTraining() {
   if (!canSubmitTraining.value) { message.value = '请先确认音频文案'; return }
   tasks.value.unshift({ id: Date.now(), name: voiceName.value.trim(), gender: voiceGender.value, file: audioFile.value.name, method: mode.value === 'upload' ? '自由上传' : '固定文案上传', createdAt: new Date().toLocaleString('zh-CN', { hour12: false }), status: '待训练（演示）', originalText: transcript.value.trim(), originalUrl: audioUrl.value, synthesisText: '', demo: false })
   audioUrl.value = ''
-  voiceName.value = ''
-  voiceGender.value = ''
-  clearAudio()
-  message.value = '训练任务已加入演示列表'
+  closeCreateModal()
+  taskNotice.value = '训练任务已加入演示列表'
 }
 
 onBeforeUnmount(() => {
@@ -240,13 +259,18 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <section class="voice-flow-card" aria-label="音色训练流程">
-      <div><b>01</b><strong>提供音频</strong><span>自由上传或按固定文案录制后上传</span></div>
-      <div><b>02</b><strong>核对文案</strong><span>识别结果由用户确认</span></div>
-      <div><b>03</b><strong>提交训练</strong><span>生成音色训练任务</span></div>
-    </section>
-
-    <div class="voice-training-layout">
+    <div v-if="createModalOpen" class="voice-create-backdrop" @click.self="closeCreateModal">
+      <div class="voice-create-modal" role="dialog" aria-modal="true" aria-labelledby="voice-create-title" @keydown.esc="closeCreateModal">
+        <div class="voice-create-modal-header">
+          <div><h2 id="voice-create-title">新增音色</h2><p>上传音频并核对文案，创建音色训练任务。</p></div>
+          <button type="button" aria-label="关闭新增音色窗口" @click="closeCreateModal"><AppIcon name="close" :size="20" /></button>
+        </div>
+        <section class="voice-flow-card" aria-label="音色训练流程">
+          <div><b>01</b><strong>提供音频</strong><span>自由上传或按固定文案录制后上传</span></div>
+          <div><b>02</b><strong>核对文案</strong><span>识别结果由用户确认</span></div>
+          <div><b>03</b><strong>提交训练</strong><span>生成音色训练任务</span></div>
+        </section>
+        <div class="voice-training-layout">
       <section class="voice-training-card">
         <div class="voice-section-heading"><div><h2>新建音色训练</h2><p>可自由上传音频，也可参考固定文案录制后上传。</p></div><AppIcon name="mic" :size="24" /></div>
         <div class="voice-method-tabs" role="tablist" aria-label="音频提供方式">
@@ -254,7 +278,7 @@ onBeforeUnmount(() => {
           <button type="button" role="tab" :aria-selected="mode === 'guided'" :class="{ active: mode === 'guided' }" @click="changeMode('guided')"><AppIcon name="mic" :size="17" />固定文案引导录制 <small>辅助方案</small></button>
         </div>
 
-        <div class="voice-form-field"><label for="voice-training-name">音色名称</label><input id="voice-training-name" v-model="voiceName" maxlength="50" placeholder="例如：品牌讲解员音色" /></div>
+        <div class="voice-form-field"><label for="voice-training-name">音色名称</label><input id="voice-training-name" ref="createNameInput" v-model="voiceName" maxlength="50" placeholder="例如：品牌讲解员音色" /></div>
         <div class="voice-form-field"><label for="voice-training-gender">性别</label><select id="voice-training-gender" v-model="voiceGender" required><option value="" disabled>请选择性别</option><option value="男声">男声</option><option value="女声">女声</option></select></div>
 
         <template v-if="mode === 'upload'">
@@ -282,8 +306,10 @@ onBeforeUnmount(() => {
       </section>
 
       <aside class="voice-tips-card"><h2>音频准备建议</h2><ul><li>训练音频仅支持 WAV、FLAC、MP3；建议 5–10 秒，最长不超过 20 秒。</li><li>在安静环境中录制，尽量减少回声、音乐和背景杂音。</li><li>只保留同一人的声音，语速自然，发音清晰。</li><li>上传后认真核对文案，确保文字与实际音频一致。</li></ul><div><AppIcon name="info" :size="18" /><p>当前页面演示音色训练交互。真实 ASR 识别与音色模型训练需要后端服务接入。</p></div></aside>
+        </div>
+      </div>
     </div>
 
-    <section class="voice-task-card"><div class="voice-section-heading"><div><h2>训练任务</h2><p>查看音色、原始音频与文案合成试听</p></div><span>{{ tasks.length }} 条</span></div><div class="voice-task-list"><article v-for="task in tasks" :key="task.id" class="voice-task-detail"><div class="voice-task-heading"><span class="voice-task-icon"><AppIcon name="mic" :size="19" /></span><div><strong>{{ task.name }}</strong><small>性别：{{ task.gender }} · 训练时间：{{ task.createdAt }} · {{ task.method }}</small></div><em>{{ task.status }}</em></div><div class="voice-task-preview-grid"><div class="voice-task-original"><strong>原始音频试听</strong><small>{{ task.file }}</small><audio v-if="task.originalUrl" :src="task.originalUrl" controls preload="metadata" /><button v-else type="button" @click="speakText(task, task.originalText, 'original')">{{ activeSpeech === `${task.id}-original` ? '播放中，点击其他试听可切换' : '试听原始音频' }}</button><p v-if="task.demo">示例任务暂无原始文件，使用浏览器语音演示。</p></div><div class="voice-task-synthesis"><label :for="`voice-synthesis-${task.id}`">输入文案合成试听</label><textarea :id="`voice-synthesis-${task.id}`" v-model="task.synthesisText" rows="2" maxlength="500" placeholder="输入需要试听的文案" @input="changeSynthesisText(task)" /><div><button type="button" :disabled="!task.synthesisText?.trim()" @click="synthesizeTask(task)"><AppIcon name="video" :size="15" />{{ activeSpeech === `${task.id}-synthesis` ? '合成或播放中…' : '合成并试听' }}</button><span>最多 500 字</span></div><audio v-if="task.synthesizedUrl" :src="task.synthesizedUrl" controls autoplay preload="metadata" /></div></div></article></div><p v-if="taskPreviewMessage" class="voice-form-message" role="status">{{ taskPreviewMessage }}</p></section>
+    <section class="voice-task-card"><div class="voice-section-heading"><div><h2>训练任务</h2><p>查看音色、原始音频与文案合成试听</p></div><div class="voice-task-heading-actions"><span>{{ tasks.length }} 条</span><button ref="createButton" type="button" class="primary-button" @click="openCreateModal"><AppIcon name="plus" :size="17" />新增音色</button></div></div><p v-if="taskNotice" class="voice-form-message" role="status">{{ taskNotice }}</p><div class="voice-task-list"><article v-for="task in tasks" :key="task.id" class="voice-task-detail"><div class="voice-task-heading"><span class="voice-task-icon"><AppIcon name="mic" :size="19" /></span><div><strong>{{ task.name }}</strong><small>性别：{{ task.gender }} · 训练时间：{{ task.createdAt }} · {{ task.method }}</small></div><em>{{ task.status }}</em></div><div class="voice-task-preview-grid"><div class="voice-task-original"><strong>原始音频试听</strong><small>{{ task.file }}</small><audio v-if="task.originalUrl" :src="task.originalUrl" controls preload="metadata" /><button v-else type="button" @click="speakText(task, task.originalText, 'original')">{{ activeSpeech === `${task.id}-original` ? '播放中，点击其他试听可切换' : '试听原始音频' }}</button><p v-if="task.demo">示例任务暂无原始文件，使用浏览器语音演示。</p></div><div class="voice-task-synthesis"><label :for="`voice-synthesis-${task.id}`">输入文案合成试听</label><textarea :id="`voice-synthesis-${task.id}`" v-model="task.synthesisText" rows="2" maxlength="500" placeholder="输入需要试听的文案" @input="changeSynthesisText(task)" /><div><button type="button" :disabled="!task.synthesisText?.trim()" @click="synthesizeTask(task)"><AppIcon name="video" :size="15" />{{ activeSpeech === `${task.id}-synthesis` ? '合成或播放中…' : '合成并试听' }}</button><span>最多 500 字</span></div><audio v-if="task.synthesizedUrl" :src="task.synthesizedUrl" controls autoplay preload="metadata" /></div></div></article></div><p v-if="taskPreviewMessage" class="voice-form-message" role="status">{{ taskPreviewMessage }}</p></section>
   </div>
 </template>
